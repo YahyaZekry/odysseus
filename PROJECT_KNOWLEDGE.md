@@ -1,0 +1,638 @@
+# PROJECT KNOWLEDGE — Odysseus
+
+> Last updated: 2026-06-08
+> Status: Active
+
+---
+
+## What This Project Does
+A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that runs on local hardware. Provides chat with any OpenAI-compatible LLM, an agent with tools (files, shell, web, MCP, memory, skills), deep research, email/calendar/contacts sync, notes/tasks, document editing, image generation, model management ("Cookbook"), and more. Privacy-first, local-first.
+
+---
+
+## Tech Stack
+| Category        | Details                                      |
+|-----------------|----------------------------------------------|
+| Language        | Python 3.11+                                 |
+| Runtime         | uvicorn (ASGI) / Docker Compose              |
+| Framework       | FastAPI                                      |
+| Database        | SQLite                                       |
+| ORM / Query     | SQLAlchemy                                   |
+| Auth            | bcrypt + session tokens + TOTP 2FA (pyotp) + API bearer tokens |
+| Frontend        | Vanilla JS SPA (no framework), ES modules, CSS |
+| Vector Store    | ChromaDB (standalone service)                |
+| Embeddings      | fastembed (ONNX, local) + optional OpenAI-compatible API endpoint |
+| Search          | SearXNG (self-hosted) + optional DuckDuckGo  |
+| Styling         | Vanilla CSS                                  |
+| Testing         | pytest + pytest-asyncio                      |
+| Key Libraries   | httpx, pydantic, beautifulsoup4, pypdf, caldav, icalendar, python-dateutil, croniter, cryptography, bcrypt, mcp, qrcode, nh3, markdown |
+| Notifications   | ntfy (self-hosted)                           |
+| Container       | Docker Compose (Odysseus + ChromaDB + SearXNG + ntfy) |
+| Deployment      | Docker Compose (recommended), native Linux/macOS/Windows, systemd service |
+
+---
+
+## Project Structure
+```
+.
+├── app.py                    # FastAPI entry point — routes, middleware, lifespan
+├── core/                     # Core infrastructure
+│   ├── auth.py               # AuthManager: bcrypt, sessions, 2FA, user/privilege CRUD
+│   ├── database.py           # SQLAlchemy models (30+ tables) + engine + migrations
+│   ├── models.py             # Pure data containers (ChatMessage, Session dataclasses)
+│   ├── session_manager.py    # Session CRUD + message persistence
+│   ├── middleware.py         # SecurityHeadersMiddleware, require_admin helper
+│   ├── constants.py          # Base paths, env var defaults, agent output caps
+│   ├── exceptions.py         # Custom exception types
+│   ├── atomic_io.py          # Atomic JSON file writes
+│   └── platform_compat.py    # Platform-specific compatibility
+├── src/                      # Application logic
+│   ├── llm_core.py           # LLM API client (~97KB) — OpenAI-compatible provider abstraction
+│   ├── agent_loop.py         # Agent main loop (~170KB)
+│   ├── tool_implementations.py # All agent tool implementations (~205KB)
+│   ├── tool_schemas.py       # Tool JSON schemas (~82KB)
+│   ├── tool_index.py         # RAG-based tool selection (~42KB)
+│   ├── tool_execution.py     # Tool execution pipeline (~68KB)
+│   ├── tool_parsing.py       # Tool call parsing (~20KB)
+│   ├── ai_interaction.py     # AI interaction tools: debates, pipelines, UI control (~76KB)
+│   ├── builtin_actions.py    # Built-in agent actions (~107KB)
+│   ├── chat_handler.py       # Chat response handler
+│   ├── chat_processor.py     # Chat processing pipeline
+│   ├── deep_research.py      # Multi-step deep research engine
+│   ├── research_handler.py   # Research orchestration
+│   ├── memory.py             # Memory management
+│   ├── memory_vector.py      # Vector memory (ChromaDB for memories)
+│   ├── memory_provider.py    # Memory provider abstraction
+│   ├── personal_docs.py      # Personal document management
+│   ├── rag_manager.py        # RAG manager for personal docs
+│   ├── rag_vector.py         # Vector RAG (ChromaDB for document search)
+│   ├── rag_singleton.py      # RAG singleton accessor
+│   ├── mcp_manager.py        # MCP server management (~29KB)
+│   ├── mcp_oauth.py          # MCP OAuth flow
+│   ├── builtin_mcp.py        # Built-in MCP server registration
+│   ├── model_discovery.py    # LLM endpoint/model discovery
+│   ├── model_context.py      # Model context window management
+│   ├── endpoint_resolver.py  # Endpoint URL resolution
+│   ├── config.py             # App configuration
+│   ├── settings.py           # App settings CRUD
+│   ├── embeddings.py         # Embedding provider abstraction
+│   ├── embedding_lanes.py    # Embedding lane management
+│   ├── chroma_client.py      # ChromaDB HTTP client wrapper
+│   ├── task_scheduler.py     # Cron-style scheduled task engine (~110KB)
+│   ├── event_bus.py          # In-process event bus
+│   ├── webhook_manager.py    # Outgoing webhook manager
+│   ├── upload_handler.py     # File upload handling (~28KB)
+│   ├── api_key_manager.py    # API key management
+│   ├── preset_manager.py     # Preset configuration manager
+│   ├── auth_helpers.py       # Auth helper utilities
+│   ├── session_actions.py    # Session action utilities
+│   ├── session_search.py     # Session search
+│   ├── integrations.py       # Third-party integrations (~21KB)
+│   ├── secret_storage.py     # Fernet-encrypted secret storage
+│   ├── prompt_security.py    # Prompt injection guardrails
+│   ├── topic_analyzer.py     # Topic analysis
+│   ├── context_compactor.py  # Context window compaction
+│   ├── context_budget.py     # Context budget management
+│   ├── bg_jobs.py            # Background job management
+│   ├── bg_monitor.py         # Background job monitor
+│   ├── assistant_log.py      # Assistant activity logging
+│   ├── chatgpt_subscription.py # ChatGPT subscription device-flow
+│   ├── copilot.py             # GitHub Copilot device-flow
+│   ├── caldav_sync.py        # CalDAV sync engine
+│   ├── caldav_writeback.py   # CalDAV write-back
+│   ├── document_processor.py # Document processing
+│   ├── document_actions.py   # Document action helpers
+│   ├── email_thread_parser.py # Email thread parsing
+│   ├── teacher_escalation.py # Teacher escalation workflow
+│   ├── visual_report.py      # Deep research visual report rendering (~71KB)
+│   ├── url_safety.py         # URL safety checks
+│   ├── url_security.py       # URL security validation
+│   ├── text_helpers.py       # Text processing utilities
+│   ├── user_time.py          # User timezone handling
+│   ├── rate_limiter.py       # Rate limiting
+│   ├── readiness.py          # Readiness check
+│   ├── chat_helpers.py       # Chat helper utilities
+│   ├── agent_tools.py        # Agent tool interfaces
+│   ├── agent_runs.py         # Agent run management
+│   ├── action_intents.py     # Action intent detection
+│   ├── goal_based_extractor.py # Goal-based data extraction
+│   ├── generated_images.py   # Generated image utilities
+│   ├── pdf_forms.py          # PDF form filling
+│   ├── pdf_form_doc.py       # PDF form document handling
+│   ├── pdf_runtime.py        # PDF runtime checks
+│   ├── markitdown_runtime.py # Office document -> Markdown conversion
+│   ├── tls_overrides.py      # TLS configuration overrides
+│   ├── upload_limits.py      # Upload size limits
+│   ├── settings_scrub.py     # Settings sanitization
+│   ├── request_models.py     # API request validation models
+│   ├── app_helpers.py        # App helper utilities
+│   ├── app_initializer.py    # Component initialization
+│   ├── copilot.py            # GitHub Copilot integration
+│   ├── cookbook_serve_lifecycle.py # Cookbook serve lifecycle management
+│   ├── clean_server.sh       # Cleanup script
+│   ├── database.py           # Database initialization
+│   ├── exceptions.py         # Exception types
+│   └── constants.py          # Constants
+├── routes/                   # API route handlers (55+ files)
+│   ├── auth_routes.py        # Auth endpoints (login, signup, 2FA, users, integrations)
+│   ├── chat_routes.py        # Chat endpoints (~78KB)
+│   ├── session_routes.py     # Session CRUD (~56KB)
+│   ├── document_routes.py    # Document editor endpoints (~76KB)
+│   ├── email_routes.py       # Email endpoints (~155KB)
+│   ├── email_pollers.py      # Email background polling (~69KB)
+│   ├── email_helpers.py      # Email helper utilities (~61KB)
+│   ├── calendar_routes.py    # Calendar/CalDAV endpoints (~63KB)
+│   ├── cookbook_routes.py    # Cookbook model management (~128KB)
+│   ├── cookbook_helpers.py   # Cookbook helpers (~52KB)
+│   ├── model_routes.py       # Model/probe endpoints (~101KB)
+│   ├── shell_routes.py       # Shell execution endpoints (~52KB)
+│   ├── task_routes.py        # Scheduled task endpoints (~51KB)
+│   ├── note_routes.py        # Notes/todos endpoints (~41KB)
+│   ├── skills_routes.py      # Skills management (~76KB)
+│   ├── memory_routes.py      # Memory endpoints (~24KB)
+│   ├── history_routes.py     # Chat history endpoints (~29KB)
+│   ├── gallery_routes.py     # Image gallery endpoints (~81KB)
+│   ├── mcp_routes.py         # MCP server management (~28KB)
+│   ├── research_routes.py    # Deep research endpoints (~31KB)
+│   ├── contacts_routes.py    # CardDAV contacts (~32KB)
+│   ├── codex_routes.py       # Codex integration (~38KB)
+│   ├── webhook_routes.py     # Webhook management (~16KB)
+│   ├── upload_routes.py      # File upload endpoints (~13KB)
+│   ├── assistant_routes.py   # Personal assistant endpoints (~14KB)
+│   ├── backup_routes.py      # Backup/export/import
+│   ├── compare_routes.py     # Model comparison (~11KB)
+│   ├── chatgpt_subscription_routes.py # ChatGPT subscription device-flow
+│   ├── copilot_routes.py     # GitHub Copilot device-flow
+│   ├── hwfit_routes.py       # Hardware fit ("What Fits?") (~14KB)
+│   ├── personal_routes.py    # Personal document management (~13KB)
+│   ├── embedding_routes.py   # Embedding model management (~14KB)
+│   ├── api_token_routes.py   # API token CRUD
+│   ├── admin_wipe_routes.py  # Admin danger-zone wipes
+│   ├── cleanup_routes.py     # Session cleanup
+│   ├── search_routes.py      # Web search
+│   ├── preset_routes.py      # Preset management
+│   ├── prefs_routes.py       # User preferences
+│   ├── diagnostics_routes.py # System diagnostics
+│   ├── tts_routes.py         # Text-to-speech
+│   ├── stt_routes.py         # Speech-to-text
+│   ├── signature_routes.py   # Reusable image stamps
+│   ├── vault_routes.py       # Secure vault
+│   ├── editor_draft_routes.py # Image editor drafts
+│   ├── font_routes.py        # Font management
+│   ├── workspace_routes.py   # Workspace management
+│   ├── emoji_routes.py       # Emoji SVG proxy
+│   └── device_flow.py        # OAuth device-flow helpers
+├── services/                 # Service modules
+│   ├── search/               # Web search service (providers: SearXNG, DuckDuckGo, etc.)
+│   ├── memory/               # Memory extraction + skill management
+│   ├── research/             # Research orchestration
+│   ├── docs/                 # Document service
+│   ├── hwfit/                # Hardware fit scoring (llmfit-based)
+│   ├── shell/                # Shell execution service
+│   ├── tts/                  # Text-to-speech service
+│   ├── stt/                  # Speech-to-text service
+│   ├── youtube/              # YouTube transcript handler
+│   └── faces/                # Face detection service
+├── mcp_servers/              # Built-in MCP servers
+│   ├── email_server.py       # Email MCP server
+│   ├── memory_server.py      # Memory MCP server
+│   ├── rag_server.py         # RAG MCP server
+│   └── image_gen_server.py   # Image generation MCP server
+├── companion/                # Companion app endpoints
+│   ├── routes.py             # /ping, /info, /models, /pair endpoints
+│   └── pairing.py            # Companion pairing logic
+├── static/                   # Frontend SPA
+│   ├── index.html            # Main app shell
+│   ├── login.html            # Login page
+│   ├── app.js                # Main app bundle
+│   ├── style.css             # Styles (~large, all CSS in one file)
+│   ├── manifest.json         # PWA manifest
+│   ├── sw.js                 # Service worker
+│   └── js/                   # ES modules (80+ files)
+│       ├── chat.js, chatRenderer.js, chatStream.js
+│       ├── cookbook*.js      # Cookbook UI modules
+│       ├── calendar.js, calendar/
+│       ├── email*.js         # Email UI modules
+│       ├── notes.js          # Notes/todos UI
+│       ├── gallery*.js       # Gallery UI
+│       ├── admin.js          # Admin settings
+│       ├── compare/          # Model comparison UI
+│       └── ...               # 70+ more modules
+├── scripts/                  # Utility scripts
+│   ├── check-docker-gpu.sh   # NVIDIA GPU Docker diagnostic
+│   ├── check-docker-amd-gpu.sh # AMD GPU Docker diagnostic
+│   ├── odysseus-mail         # CLI mail poller (for cron)
+│   ├── hf_download.py        # HuggingFace model download helper
+│   └── ...
+├── integrations/             # External integration plugins
+│   ├── claude/               # Claude Code integration (SKILL.md + API script)
+│   └── codex/                # Codex plugin integration (plugin.json + SKILL.md)
+├── config/                   # Bundled service configs
+│   └── searxng/settings.yml  # SearXNG default config
+├── docker/                   # Docker support files
+│   ├── entrypoint.sh         # Entrypoint (drops privileges via gosu)
+│   ├── gpu.nvidia.yml        # NVIDIA GPU Compose overlay
+│   └── gpu.amd.yml           # AMD GPU Compose overlay
+├── docker-compose.yml        # Main Compose file
+├── Dockerfile                # Container image (Python 3.12-slim)
+├── pyproject.toml            # Pytest config
+├── requirements.txt          # Core Python dependencies
+├── requirements-optional.txt # Optional dependencies (whisper, DuckDuckGo, PyMuPDF, markitdown)
+├── package.json              # Node deps (Anthropic SDK, bombadil linter)
+├── build-macos-app.sh        # macOS app bundler
+├── launch-windows.ps1        # Windows one-command launcher
+├── install-service.sh        # systemd service installer
+├── odysseus-ui.service       # systemd unit file
+├── .env.example              # Environment variable reference
+├── README.md                 # Project documentation
+├── ROADMAP.md                # Known issues and future work
+├── CONTRIBUTING.md           # Contribution guide
+├── ACKNOWLEDGMENTS.md        # Third-party acknowledgments
+└── LICENSE                   # MIT license
+```
+
+Key files:
+- `app.py` — FastAPI entry point: lifespan, middleware (CORS, security, auth, timeout), static file serving, all route registrations
+- `core/database.py` — All SQLAlchemy models (30+ tables), engine config, encrypted text column
+- `core/auth.py` — AuthManager: user CRUD, password hashing (bcrypt), session tokens, 2FA (TOTP), privileges
+- `src/llm_core.py` — LLM API client: OpenAI-compatible provider abstraction, streaming, tool calling
+- `src/agent_loop.py` — Main agent loop: tool selection, execution, continuation
+- `src/tool_implementations.py` — All agent tool implementations (205KB)
+- `src/task_scheduler.py` — Cron-style scheduled task engine (110KB)
+- `src/builtin_actions.py` — Built-in agent actions (107KB)
+- `src/ai_interaction.py` — Debates, pipelines, self-managing AI (76KB)
+- `static/app.js` — Main frontend application bundle
+
+---
+
+## Database Schema
+> SQLite via SQLAlchemy ORM. Tables defined in `core/database.py`.
+
+| Table | Key Columns | Relations |
+|-------|-------------|-----------|
+| `sessions` | id (PK), name, endpoint_url, model, owner (FK→users), rag, archived, folder, is_important, message_count, total_input_tokens, total_output_tokens, mode, crew_member_id, last_message_at | has_many chat_messages, has_many documents, has_many gallery_images |
+| `chat_messages` | id (PK), session_id (FK→sessions), role (user/assistant/system), content, metadata, timestamp | belongs_to session |
+| `chat_messages_fts` | Virtual table for FTS5 full-text search on chat_messages | |
+| `documents` | id (PK), session_id (FK→sessions), title, language, current_content, version_count, is_active, archived, owner, tidy_verdict, source_email_uid/folder/account_id/message_id | has_many document_versions, belongs_to session |
+| `document_versions` | id (PK), document_id (FK→documents), version_number, content, summary, source (ai/user) | belongs_to document |
+| `gallery_images` | id (PK), filename (unique), prompt, model, size, quality, tags, ai_tags, session_id (FK→sessions), album_id (FK→gallery_albums), owner, is_active, favorite, file_hash, taken_at, camera_make/model, gps_lat/lng, width, height, file_size | belongs_to session, belongs_to album |
+| `gallery_albums` | id (PK), name, description, cover_id (FK→gallery_images), owner | has_many gallery_images |
+| `email_accounts` | id (PK), owner, is_default, imap_host/port/username/password (encrypted), smtp_host/port/username/password (encrypted), imap_use_ssl, smtp_use_ssl, provider, routing_rules (JSON), polling_enabled, sync_folder | |
+| `email_messages` | id (PK), account_id (FK→email_accounts), folder, uid, message_id (Message-ID header), subject, from_addr, to_addrs, cc_addrs, date, body_text, body_html, flags, is_read, is_flagged, is_urgent, thread_id, in_reply_to | belongs_to email_account |
+| `scheduled_tasks` | id (PK), name, owner, action, params (JSON), schedule (cron expr), enabled, last_run_at, next_run_at, is_event, webhook_enabled, webhook_token, webhook_url, end_after_min | |
+| `api_tokens` | id (PK), name, token_prefix, token_hash, owner, scopes, is_active, last_used_at | |
+| `webhooks` | id (PK), name, url, events (JSON), owner, secret, is_active | |
+| `notes` | id (PK), owner, title, content, color, is_pinned, is_archived, reminder_at, checklist (JSON), tags, folder, shared_with | |
+| `contacts` | id (PK), owner, carddav_url, carddav_username, carddav_password (encrypted), name, email, phone, organization, photo, vcard_raw, sync_token, etag | |
+| `crew_members` | id (PK), name, system_prompt, model, endpoint_url, temperature, owner, session_id (FK→sessions) | belongs_to session |
+| `skill_definitions` | id (PK), name, description, author, instructions, triggers (JSON), tools, context, owner, is_active, last_audited_at, audit_score | |
+| `settings` | key (PK), value, type | |
+| `notifications` | id (PK), owner, title, body, type, link, is_read, created_at | |
+| `calendar_cache` | id (PK), owner, cal_data (JSON), account_id, calendar_id | |
+| `editor_drafts` | id (PK), owner, name, state (JSON), thumbnail, updated_at | |
+| `vault_items` | id (PK), owner, name, content (encrypted), type | |
+
+RLS / access rules:
+- Most tables are owner-scoped: queries filter by `owner == current_user` or `owner IS NULL`
+- Admin routes require `require_admin` decorator (checks user is admin in auth.json)
+- Sessions scoped per-owner; legacy null-owner sessions are shared
+- API tokens are scoped (e.g. `chat`, `email:read`, `todos:write`)
+- `internal-tool` loopback bypasses owner checks for agent-internal calls
+
+---
+
+## Server Actions / API Routes
+> 150+ endpoints across 55+ route files. Prefix `/api/auth` on all auth routes, `/api` on others.
+
+| Route | Auth Required | What It Does |
+|-------|---------------|-------------|
+| `GET /` | Session | Serve SPA (index.html) |
+| `GET /login` | None | Login page (redirects if auth disabled) |
+| `GET /notes`, `/calendar`, `/cookbook`, `/email`, `/memory`, `/gallery`, `/tasks`, `/library` | Session | SPA deep-link routes |
+| `POST /api/auth/setup` | None | First-time admin setup |
+| `POST /api/auth/signup` | None | User registration |
+| `POST /api/auth/login` | None | Login (returns session cookie) |
+| `POST /api/auth/logout` | None | Logout (clears session) |
+| `GET /api/auth/status` | None | Auth status + current user |
+| `POST /api/auth/change-password` | Session | Change password |
+| `POST /api/auth/2fa/setup` | Session | Enable 2FA (returns TOTP URI) |
+| `POST /api/auth/2fa/confirm` | Session | Confirm 2FA setup |
+| `POST /api/auth/2fa/disable` | Session | Disable 2FA |
+| `GET /api/auth/2fa/status` | Session | Check 2FA status |
+| `GET /api/auth/users` | Admin | List users |
+| `POST /api/auth/users` | Admin | Create user |
+| `PUT /api/auth/users/{username}/privileges` | Admin | Update user privileges |
+| `PUT /api/auth/users/{username}/rename` | Admin | Rename user |
+| `DELETE /api/auth/users` | Admin | Delete users |
+| `PUT /api/auth/open-signup` | Admin | Toggle open signup |
+| `GET /api/auth/features` | None | Get enabled features |
+| `POST /api/auth/features` | Admin | Set enabled features |
+| `GET /api/auth/settings` | None | Get auth settings |
+| `POST /api/auth/settings` | Admin | Set auth settings |
+| `GET /api/auth/integrations` | Session | List integrations |
+| `GET /api/auth/integrations/presets` | None | Integration presets |
+| `POST /api/auth/integrations` | Session | Create integration |
+| `PUT /api/auth/integrations/{id}` | Session | Update integration |
+| `DELETE /api/auth/integrations/{id}` | Session | Delete integration |
+| `POST /api/auth/integrations/{id}/test` | Session | Test integration |
+| `GET /api/chat/...` | Session | Chat endpoints (streaming, send, etc.) |
+| `GET /api/session/...` | Session | Session CRUD, listing, search |
+| `GET /api/document/...` | Session | Document CRUD, versions, search |
+| `GET /api/email/...` | Session | Email: list, read, send, search, folders, accounts, attachments, triage |
+| `GET /api/calendar/...` | Session | Calendar: config, accounts, calendars, events, sync, .ics |
+| `GET /api/cookbook/...` | Session | Cookbook: model scan, download, serve, dependencies, hardware fit |
+| `GET /api/model/...` | Session | Model discovery, probing, provider management |
+| `GET /api/shell/...` | Session/Agent | Shell command execution (admin-gated) |
+| `GET /api/task/...` | Session | Scheduled task CRUD, run, webhook |
+| `GET /api/note/...` | Session | Notes/todos CRUD, reminders |
+| `GET /api/skills/...` | Session | Skills CRUD, audit, search |
+| `GET /api/memory/...` | Session | Memory CRUD, search |
+| `GET /api/history/...` | Session | Session history |
+| `GET /api/gallery/...` | Session | Gallery: images, albums, upload, edit, search |
+| `GET /api/mcp/...` | Admin | MCP server management |
+| `GET /api/research/...` | Session | Deep research: run, status, results |
+| `GET /api/contacts/...` | Session | CardDAV contacts CRUD, sync |
+| `GET /api/codex/...` | API Token | Codex/Claude Code bridge endpoints |
+| `GET /api/webhook/...` | Session | Webhook CRUD, test, logs |
+| `POST /api/upload` | Session | File upload |
+| `GET /api/backup/export` | Session | Export user data |
+| `POST /api/backup/import` | Session | Import user data |
+| `GET /api/compare/...` | Session | Model A/B comparison |
+| `GET /api/copilot/...` | Session | GitHub Copilot device-flow |
+| `GET /api/chatgpt-subscription/...` | Session | ChatGPT Subscription device-flow |
+| `GET /api/personal/...` | Session | Personal document management |
+| `GET /api/embedding/...` | Session | Embedding model management |
+| `GET /api/tts/...` | Session | Text-to-speech |
+| `GET /api/stt/...` | Session | Speech-to-text |
+| `GET /api/signature/...` | Session | Reusable image stamps |
+| `GET /api/vault/...` | Session | Secure vault CRUD |
+| `GET /api/editor-draft/...` | Session | Image editor draft persistence |
+| `GET /api/workspace/...` | Session | Workspace management |
+| `GET /api/emoji/...` | None | Emoji SVG proxy (Twemoji) |
+| `GET /api/health` | None | Liveness check |
+| `GET /api/ready` | None | Readiness check (DB, data dir) |
+| `GET /api/version` | None | App version |
+| `GET /api/runtime` | None | Runtime info (Docker, Ollama URL) |
+| `DELETE /api/wipe/{kind}` | Admin | Danger-zone data wipe |
+| `GET /api/tokens` | Session | List API tokens (admin: all; user: own) |
+| `POST /api/tokens` | Session | Create API token |
+| `PATCH /api/tokens/{id}` | Session | Update API token |
+| `DELETE /api/tokens/{id}` | Session | Delete API token |
+| `GET /api/auth/assistant/...` | Session | Personal assistant settings, status, run |
+| `POST /api/tasks/{id}/webhook/{token}` | None | External webhook trigger (token-authenticated) |
+| `GET /api/companion/ping/info/models/pair` | Session | Companion app endpoints |
+
+---
+
+## Environment Variables
+> All configurable via `.env`. Full reference at `.env.example`.
+
+| Variable | Used In | What It Enables |
+|----------|---------|----------------|
+| `LLM_HOST` | `src/constants.py` | Default LLM server host |
+| `LLM_HOSTS` | `src/constants.py` | Additional LLM hosts for model discovery |
+| `OLLAMA_BASE_URL` | `app.py` | Ollama endpoint override |
+| `LM_STUDIO_URL` | `app.py` | LM Studio endpoint override |
+| `OPENAI_API_KEY` | `src/constants.py` | OpenAI API access |
+| `RESEARCH_LLM_ENDPOINT` | research handler | Research-specific LLM endpoint |
+| `LLM_CA_BUNDLE` | `src/tls_overrides.py` | Custom CA cert bundle for LLM endpoints |
+| `SEARXNG_INSTANCE` | `src/constants.py` | SearXNG URL for web search |
+| `SEARXNG_SECRET` | SearXNG config | SearXNG cookie/CSRF secret |
+| `DATABASE_URL` | `core/database.py` | Database connection (default: SQLite) |
+| `ODYSSEUS_DATA_DIR` | `src/constants.py` | Override data directory path |
+| `AUTH_ENABLED` | `app.py` | Enable/disable auth |
+| `APP_BIND` | Docker Compose | Host bind address |
+| `APP_PORT` | Docker Compose | Host port |
+| `APP_PUBLIC_URL` | webhooks, email | Public URL of the instance |
+| `LOCALHOST_BYPASS` | `app.py` | Dev-only auth bypass for loopback |
+| `SECURE_COOKIES` | `routes/auth_routes.py` | Mark session cookies Secure |
+| `ODYSSEUS_ADMIN_PASSWORD` | setup | Pre-seed admin password |
+| `ALLOWED_ORIGINS` | `app.py` | CORS allowed origins |
+| `CHROMADB_HOST` | `src/chroma_client.py` | ChromaDB host |
+| `CHROMADB_PORT` | `src/chroma_client.py` | ChromaDB port |
+| `EMBEDDING_URL` | `src/embeddings.py` | Embedding API endpoint |
+| `EMBEDDING_API_KEY` | `src/embeddings.py` | Embedding API key |
+| `EMBEDDING_MODEL` | `src/embeddings.py` | Embedding model name |
+| `FASTEMBED_MODEL` | `src/embeddings.py` | Local ONNX embedding model |
+| `FASTEMBED_CACHE_PATH` | `src/constants.py` | fastembed cache directory |
+| `CLEANUP_INTERVAL_HOURS` | `src/constants.py` | Cleanup interval |
+| `ODYSSEUS_INPROCESS_POLLERS` | email pollers | Enable in-process email polling |
+| `ODYSSEUS_INPROCESS_TASKS` | `app.py` | Enable in-process task scheduler |
+| `ODYSSEUS_SCRIPT_HOST` | task scheduler | SSH host for remote script execution |
+| `ODYSSEUS_CHAT_UPLOAD_MAX_BYTES` | upload limits | Chat attachment size cap |
+| `ODYSSEUS_MAIL_ATTACHMENTS_DIR` | `src/constants.py` | Mail attachments directory |
+| `REQUEST_HARD_TIMEOUT` | `app.py` | Request timeout in seconds |
+| `COMPOSE_FILE` | Docker | GPU Compose overlay selection |
+| `RENDER_GID` | Docker | AMD GPU render group ID |
+
+---
+
+## Dev Commands
+
+| Command | What It Does |
+|---------|-------------|
+| `python -m uvicorn app:app --host 127.0.0.1 --port 7000` | Run dev server natively |
+| `docker compose up -d --build` | Build and start all services |
+| `docker compose logs --tail=120 odysseus` | View app logs |
+| `pytest` | Run tests |
+| `python setup.py` | First-time setup (creates admin, initializes DB) |
+| `powershell -ExecutionPolicy Bypass -File .\launch-windows.ps1` | Windows one-command launcher |
+| `./build-macos-app.sh` | Build macOS app bundle |
+| `./install-service.sh` | Install systemd service |
+| `pip install -r requirements.txt` | Install Python dependencies |
+| `pip install -r requirements-optional.txt` | Install optional dependencies |
+
+---
+
+## External Integrations & Data Contracts
+
+**SearXNG (self-hosted search engine)**
+- Writes to: none (read-only)
+- Reads from: SearXNG API at configured `SEARXNG_INSTANCE` URL
+- Triggered by: user search requests
+- Config: `config/searxng/settings.yml`
+
+**ChromaDB (vector store)**
+- Writes to: ChromaDB collections via HTTP API at configured host:port
+- Reads from: ChromaDB collections
+- Used by: personal docs RAG, tool selection index, memory vectors
+
+**ntfy (push notifications)**
+- Receives: notification requests from task scheduler and email triage
+- Channel: HTTP POST to configured ntfy server
+
+**CalDAV providers** (Radicale, Nextcloud, Apple, Fastmail)
+- Writes to: remote CalDAV calendar collections
+- Reads from: remote CalDAV calendar collections
+- Auth: username/password per account
+
+**CardDAV providers** (contacts)
+- Writes to: remote CardDAV address book
+- Reads from: remote CardDAV address book
+- Auth: username/password per contact entry
+
+**IMAP/SMTP (email)**
+- Reads from: IMAP inbox (configurable folders)
+- Writes to: IMAP (move, flag, delete) + SMTP (send)
+- Data: `email_accounts` table stores credentials (Fernet-encrypted); `email_messages` caches fetched mail
+
+**Codex / Claude Code integrations**
+- Writes to: API via api_token scoped routes (todos, email, calendar, documents)
+- Reads from: same scoped routes
+- Auth: API bearer tokens (`ody_*`)
+
+---
+
+## Systems
+
+| System | Status | Details |
+|--------|--------|---------|
+| Authentication | ✅ Active | bcrypt, session cookies, 2FA (TOTP), API bearer tokens, per-user privileges |
+| Database | ✅ Active | SQLite via SQLAlchemy ORM (30+ tables) |
+| AI / LLM | ✅ Active | OpenAI-compatible client, multiple providers, streaming, tool calling |
+| Web Search | ✅ Active | SearXNG (primary), optional DuckDuckGo, Brave, Tavily, Serper, Google PSE |
+| Agent | ✅ Active | Tool-using agent with MCP, web, files, shell, memory, skills |
+| Memory / Skills | ✅ Active | Persistent memory + skills, vector + keyword retrieval, ChromaDB + fastembed |
+| RAG (Personal Docs) | ✅ Active | ChromaDB-backed semantic document search |
+| Email | ✅ Active | IMAP/SMTP multi-account, AI triage, auto-reply, urgency detection |
+| Calendar | ✅ Active | CalDAV sync, local-first, .ics import/export |
+| Notes/Tasks | ✅ Active | Notes with reminders, checklists, cron-style scheduled tasks |
+| Cookbook (Model Mgmt) | ✅ Active | Hardware scan, model download, vLLM/llama.cpp serving |
+| Deep Research | ✅ Active | Multi-step web research with visual report generation |
+| MCP (Model Context Protocol) | ✅ Active | Built-in MCP servers: browser, email, memory, image gen, RAG |
+| Webhooks | ✅ Active | Outgoing webhook management |
+| Task Scheduler | ✅ Active | Cron-style in-process scheduler |
+| Background Jobs | ✅ Active | Monitor for long-running tasks |
+| Image Generation | ⚠️ Partial | Diffusion model integration present |
+| TTS / STT | ✅ Active | Text-to-speech and speech-to-text providers |
+| Gallery | ✅ Active | Photo album management, EXIF, tags |
+| Contacts | ✅ Active | CardDAV contacts sync |
+| Vault | ✅ Active | Encrypted secure storage |
+| Shell | ✅ Active | User-facing command execution (admin-gated) |
+| Companion App | ✅ Active | Mobile companion pairing endpoints |
+| Codex / Claude Integration | ✅ Active | External AI code editor bridge |
+| Notifications (ntfy) | ✅ Active | Push notification support |
+| Docker Deployment | ✅ Active | Docker Compose with GPU overlays |
+| PWA | ✅ Active | Service worker, manifest.json |
+
+---
+
+## Features
+- **Chat** — Chat with any local or API model (vLLM, llama.cpp, Ollama, OpenRouter, OpenAI, GitHub Copilot). Streaming, tool calling, multi-model sessions. *(added: detected)*
+- **Agent** — Tool-using agent with web search, file operations, shell, MCP servers, memory, skills. Built on opencode agent framework. *(added: detected)*
+- **Cookbook** — Scan hardware, recommend compatible models, click to download and serve. VRAM-aware, fit scoring, vLLM/llama.cpp serving. *(added: detected)*
+- **Deep Research** — Multi-step research runs: gather, read, synthesize sources into visual reports. *(added: detected)*
+- **Model Comparison** — Blind A/B model comparison with side-by-side output and synthesis. *(added: detected)*
+- **Documents** — Multi-tab editor with markdown/HTML/CSV, syntax highlighting, AI edits and suggestions. *(added: detected)*
+- **Memory & Skills** — Persistent memory and evolving skills with vector + keyword retrieval. Import/export. *(added: detected)*
+- **Email** — IMAP/SMTP inbox with AI triage: urgency detection, auto-tag, auto-summary, auto-reply drafts. Multi-account. *(added: detected)*
+- **Notes & Tasks** — Google Keep-style notes with reminders, checklists, cron-style scheduled tasks. ntfy/browser/email notification channels. *(added: detected)*
+- **Calendar** — Local-first calendar with CalDAV sync (Radicale, Nextcloud, Apple, Fastmail). Agent-aware. *(added: detected)*
+- **Image Generation & Gallery** — AI image generation, gallery with albums, EXIF, tags, search. *(added: detected)*
+- **Image Editor** — Server-backed image editing drafts with tools. *(added: detected)*
+- **Contacts** — CardDAV contacts sync and management. *(added: detected)*
+- **MCP Servers** — Built-in MCP servers for browser, email, memory, RAG, image generation. *(added: detected)*
+- **Webhooks** — Outgoing webhooks with event selection and secret signing. *(added: detected)*
+- **API Tokens** — Scoped bearer tokens for external integrations. *(added: detected)*
+- **Vault** — Encrypted secure storage for sensitive data. *(added: detected)*
+- **Signatures** — Reusable image stamps. *(added: detected)*
+- **Workspace** — Workspace/organization management. *(added: detected)*
+- **Shell** — Command execution within agent (admin-gated). *(added: detected)*
+- **Presets** — Preset model/endpoint configurations. *(added: detected)*
+- **Backup & Restore** — Export/import user data (memories, presets, skills). *(added: detected)*
+- **Integrations** — Third-party provider integration management (LLM providers, etc.). *(added: detected)*
+- **Companion** — Mobile companion app pairing and info endpoints. *(added: detected)*
+- **Codex / Claude Integration** — External AI code editor bridge via scoped API tokens. *(added: detected)*
+- **PWA** — Installable as progressive web app with service worker. *(added: detected)*
+- **2FA** — Two-factor authentication via TOTP. *(added: detected)*
+- **Emoji SVG Proxy** — Same-origin lazy-cached Twemoji SVGs for chat rendering. *(added: detected)*
+- **TTS/STT** — Text-to-speech and speech-to-text (optional local Whisper STT). *(added: detected)*
+
+---
+
+## Workflows
+
+**User Registration / First Boot**
+1. First boot: no users → setup mode
+2. `POST /api/auth/setup` (or first request auto-creates admin with printed password)
+3. Admin logs in → changes password → configures settings
+4. Optional: enable open signup, create additional users with privileges
+
+**Chat Flow**
+1. User sends message via `POST /api/chat/send` (or streaming variant)
+2. ChatProcessor determines mode (chat/agent/research)
+3. Messages persisted to `chat_messages` via SessionManager
+4. LLM called with context + tools (if agent mode)
+5. Response streamed back and persisted
+6. Optional: memory extraction, tool execution, skill evaluation
+
+**Agent Tool Execution**
+1. Agent receives user request → LLM generates tool calls
+2. Tool calls parsed via `tool_parsing.py`
+3. Each tool executed via `tool_execution.py` calling into `tool_implementations.py`
+4. Results fed back to LLM for next iteration
+5. Loop continues until task complete or max turns reached
+
+**Deep Research**
+1. User submits research query
+2. ResearchHandler spawns multi-step research job
+3. Sub-agents search web → gather content → read pages → synthesize
+4. Visual report generated via `visual_report.py`
+5. Report available for viewing/export
+
+**Email Triage**
+1. Background email pollers fetch new mail from IMAP
+2. AI analyzes urgency → tags → auto-reply drafts
+3. Notifications sent via ntfy/browser for urgent mail
+4. User can view, reply, manage from email UI
+
+**Cookbook Model Download & Serve**
+1. Hardware scan detects GPU/CPU/RAM/VRAM
+2. Model recommendations based on hardware fit
+3. User clicks download → background job via tmux
+4. After download → serve via vLLM or llama.cpp
+5. Model available in chat model selector
+
+**Scheduled Tasks**
+1. Task scheduler evaluates cron expressions
+2. On match, executes action (built-in or user-defined)
+3. Actions include: send email, run script, webhook, agent run, etc.
+4. Results logged, notifications sent
+
+---
+
+## Known Issues / TODOs
+(Detected from ROADMAP.md and code analysis)
+- [ ] Fresh install smoke tests across Linux, macOS, Windows, Docker, WSL
+- [ ] Integration audit — which integrations actually work vs. need setup docs
+- [ ] Cookbook reliability across different machines, GPUs, shells
+- [ ] Agent prompt/context bloat for smaller local models
+- [ ] Skill/tool prompt-injection audit needed
+- [ ] Email performance: IMAP folder select/fetch, cache invalidation bottlenecks
+- [ ] CSS cleanup (single monolithic style.css)
+- [ ] Tour/tutorial scaffolding needs shared helper
+- [ ] Accessibility pass: keyboard nav, focus, contrast, reduced motion
+- [ ] Better degraded-state reporting for ChromaDB, SearXNG, email, ntfy
+- [ ] Dead code pass for old routes, stale feature flags, unused UI states
+- [ ] Provider setup/probing audit for all LLM providers
+- [ ] Offline/CDN vendor asset bundling
+
+---
+
+## Decisions & Notes
+- **Vanilla JS frontend, no framework** — SPA uses raw ES modules with no build step. CSS is monolithic. Design choice to avoid framework churn.
+- **SQLite single-file database** — Not designed for multi-server horizontal scaling. All data in `data/` directory.
+- **Docker Compose for bundled services** — ChromaDB, SearXNG, ntfy run as sidecars. GPU overlay pattern via Compose files.
+- **ChromaDB as external service** — Not embedded; connects via HTTP. Degrades gracefully if unavailable (503 vs crash).
+- **Fernet encryption for stored secrets** — Email passwords, vault items encrypted at rest. Key at `data/.app_key`.
+- **Agent loop runs in-process** — No separate agent worker. Uses asyncio for concurrency.
+- **Built on opencode agent framework** — Agent tool system, MCP, and skill system derived from opencode.
+- **Deep Research adapted from Alibaba Tongyi DeepResearch** — Multi-step research with visual report output.
+- **Cookbook based on llmfit** — Hardware fit scoring for model selection.
+
+---
+
+## Session Log
+| Date | Summary |
+|------|---------|
+| 2026-06-08 | Initial PROJECT_KNOWLEDGE.md created from code scan. Documented project structure, schema, all route files, env vars, systems, and features. |

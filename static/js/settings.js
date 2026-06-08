@@ -1057,26 +1057,31 @@ async function initSttSettings() {
    SEARCH TAB
    ═══════════════════════════════════════════ */
 
-var _searchProviderHints = {
-  searxng: 'Self-hosted SearXNG instance. Leave URL empty to use the SEARXNG_INSTANCE env var.',
-  duckduckgo: 'Free search — no API key required. Works out of the box.',
-  brave: 'Get your API key from brave.com/search/api',
-  google_pse: 'Requires a Google API key and a Programmable Search Engine ID (CX). Create one at programmablesearchengine.google.com',
-  tavily: 'AI-optimized search. 1,000 free credits/month at tavily.com',
-  serper: 'Google results via API. 2,500 free queries at serper.dev',
-  disabled: 'Web search and deep research tools will be unavailable.',
-};
-var _searchNeedsKey = { brave: 1, google_pse: 1, tavily: 1, serper: 1 };
-var _searchLabels = {
-  searxng: 'SearXNG', duckduckgo: 'DuckDuckGo', brave: 'Brave Search',
-  google_pse: 'Google PSE', tavily: 'Tavily', serper: 'Serper', disabled: 'Disabled',
-};
-var _searchKeyFields = {
-  brave: 'brave_api_key', google_pse: 'google_pse_key',
-  tavily: 'tavily_api_key', serper: 'serper_api_key',
-};
+var _providerData = null;
+
+async function _fetchProviderData() {
+  if (_providerData) return _providerData;
+  try {
+    var r = await fetch('/api/search/providers', { credentials: 'same-origin' });
+    var list = await r.json();
+    // Append the disabled provider (API skips it)
+    list.push({ id: 'disabled', label: 'Disabled', needs_key: false, needs_url: false,
+      hint: 'Web search and deep research tools will be unavailable.', key_setting: '', has_additional: [] });
+    _providerData = list;
+    return _providerData;
+  } catch (e) {
+    _providerData = [];
+    return _providerData;
+  }
+}
+
+function _findProvider(id) {
+  return (_providerData || []).find(function(p) { return p.id === id; })
+    || { id: id, label: id, needs_key: false, needs_url: false, hint: '', key_setting: '', has_additional: [] };
+}
 
 async function initSearchSettings() {
+  var allProviders = await _fetchProviderData();
   var provSel = el('set-searchProvider');
   var countSel = el('set-searchResultCount');
   var countCustomInput = el('set-searchResultCountCustom');
@@ -1090,7 +1095,12 @@ async function initSearchSettings() {
   var msg = el('set-searchMsg');
   var _settings = {};
 
-  function keyFieldFor(prov) { return _searchKeyFields[prov] || ''; }
+  // Populate select dynamically from API data
+  provSel.innerHTML = allProviders.map(function(p) {
+    return '<option value="' + p.id.replace(/"/g, '&quot;') + '" data-search-logo="' + p.id.replace(/"/g, '&quot;') + '">' + p.label + '</option>';
+  }).join('');
+
+  function keyFieldFor(prov) { return _findProvider(prov).key_setting || ''; }
 
   function loadKeyForProvider(prov) {
     var field = keyFieldFor(prov);
@@ -1099,15 +1109,12 @@ async function initSearchSettings() {
 
   function updateVisibility() {
     var prov = provSel.value;
-    urlRow.style.display = prov === 'searxng' ? 'flex' : 'none';
-    keyRow.style.display = _searchNeedsKey[prov] ? 'flex' : 'none';
-    cxRow.style.display = prov === 'google_pse' ? 'flex' : 'none';
-    hint.textContent = _searchProviderHints[prov] || '';
-    if (prov === 'brave') keyInput.placeholder = 'Brave API key';
-    else if (prov === 'google_pse') keyInput.placeholder = 'Google API key';
-    else if (prov === 'tavily') keyInput.placeholder = 'Tavily API key';
-    else if (prov === 'serper') keyInput.placeholder = 'Serper API key';
-    else keyInput.placeholder = 'API key';
+    var info = _findProvider(prov);
+    urlRow.style.display = info.needs_url ? 'flex' : 'none';
+    keyRow.style.display = info.needs_key ? 'flex' : 'none';
+    cxRow.style.display = info.has_additional && info.has_additional.some(function(f) { return f.key === 'google_pse_cx'; }) ? 'flex' : 'none';
+    hint.textContent = info.hint || '';
+    keyInput.placeholder = info.needs_key ? (info.label + ' API key') : 'API key';
     loadKeyForProvider(prov);
   }
 
@@ -1150,18 +1157,18 @@ async function initSearchSettings() {
       var s = await sRes.json();
       _settings = s;
       var active = s.search_provider || 'searxng';
-      var label = _searchLabels[active] || active;
+      var label = _findProvider(active).label || active;
       var extra = '';
       var kf = keyFieldFor(active);
       var hasKey = kf ? ((s[kf] || '').trim() || (s.search_api_key || '').trim()) : false;
-      if (_searchNeedsKey[active]) {
+      if (_findProvider(active).needs_key) {
         extra = hasKey ? ' (key set)' : ' (no key)';
       } else if (active === 'searxng' && (s.search_url || '').trim()) {
         extra = ' (' + s.search_url + ')';
       }
       var count = s.search_result_count || 5;
       msg.textContent = 'Active: ' + label + extra + ' \u00b7 ' + count + ' results';
-      msg.style.color = active === 'disabled' ? 'var(--red)' : (_searchNeedsKey[active] && !hasKey) ? 'var(--red)' : 'var(--fg)';
+      msg.style.color = active === 'disabled' ? 'var(--red)' : (_findProvider(active).needs_key && !hasKey) ? 'var(--red)' : 'var(--fg)';
     } catch (e) { /* ignore */ }
   }
   refreshStatus();
@@ -1271,7 +1278,7 @@ async function initSearchSettings() {
     var chain = (_settings.search_fallback_chain || []).slice();
     var esc = function(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
     var chipsHtml = chain.map(function(p, i) {
-      var label = _searchLabels[p] || p;
+      var label = _findProvider(p).label || p;
       var logo = _SEARCH_PROVIDER_LOGOS[p] || '';
       return '<span class="search-fb-chip" draggable="true" data-idx="' + i + '" data-value="' + esc(p) + '">' +
         '<span class="search-fb-grip" title="Drag to reorder">⋮⋮</span>' +
@@ -1396,6 +1403,10 @@ var _SEARCH_PROVIDER_LOGOS = {
   google_pse:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.35 11.1H12v3.2h5.35c-.5 2.4-2.55 4-5.35 4-3.25 0-5.9-2.65-5.9-5.9s2.65-5.9 5.9-5.9c1.55 0 2.95.55 4.05 1.55l2.4-2.4C16.85 4.05 14.55 3 12 3 7 3 3 7 3 12s4 9 9 9c5.2 0 8.65-3.65 8.65-8.8 0-.4-.05-.7-.3-1.1z"/></svg>',
   tavily:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 8.5l4 2.5v6l6 3.5 6-3.5v-6l4-2.5L12 2zm-4 9.5L12 14l4-2.5V16l-4 2.5L8 16v-4.5z"/></svg>',
   serper:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 4a7 7 0 1 0 4.2 12.6l4.5 4.5 1.4-1.4-4.5-4.5A7 7 0 0 0 11 4zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm-1 2v2H8v2h2v2h2v-2h2V10h-2V8h-2z"/></svg>',
+  bing:      '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4v16l8-3 8 3V8L12 5z"/><path d="M12 5v11l8 3V8z" opacity=".5"/></svg>',
+  search1api:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 0-10 10 10 10 0 0 0 2.5 6.7l2.1-2.1A6.5 6.5 0 0 1 12 5.5a6.5 6.5 0 0 1 6.5 6.5 6.5 6.5 0 0 1-2.5 5.1l2.1 2.1A10 10 0 0 0 22 12 10 10 0 0 0 12 2z"/></svg>',
+  firecrawl: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 2 5 5 5 8c0 3 2 6 4 8l1-1c-1-2-2-4-2-6 0-3 2-5 4-5 1 0 2 .4 3 1l1-1c-1-.6-2-1-3-1zm0 3c-4 0-6 5-6 9 0 4 2 8 6 8s6-4 6-8c0-4-2-9-6-9zm0 2c2 0 4 3 4 7s-2 5-4 5-4-1-4-5 2-7 4-7z"/></svg>',
+  exa:      '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l2.5 2L2 11l2.5 2L2 15l2.5 2L2 19l10 5 10-5-2.5-2L22 15l-2.5-2L22 11l-2.5-2L22 7l-10-5zm0 2.5L18 9v2l-6-3-6 3V9l6-4.5zM6 12l6-3 6 3-6 3-6-3zm0 4l6-3 6 3-6 3-6-3z"/></svg>',
   disabled:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 };
 
@@ -1516,19 +1527,30 @@ async function initResearchSearchSettings() {
   var searchSel = el('set-researchSearch');
   var msg = el('set-researchSearchMsg');
 
+  // Populate from cached provider data
+  if (_providerData) {
+    var html = '<option value="">Same as web search</option>';
+    _providerData.forEach(function(p) {
+      if (p.id === 'disabled') return;
+      html += '<option value="' + p.id.replace(/"/g, '&quot;') + '">' + p.label + '</option>';
+    });
+    searchSel.innerHTML = html;
+  }
+
   function updateSearchOptions(settings) {
     var options = searchSel.querySelectorAll('option');
     options.forEach(function(opt) {
       var prov = opt.value;
       if (!prov) return;
-      var kf = _searchKeyFields[prov];
+      var info = _findProvider(prov);
+      var kf = info.key_setting;
       if (!kf) return;
       var hasKey = ((settings[kf] || '').trim() || (settings.search_api_key || '').trim());
       if (!hasKey) {
-        opt.textContent = (_searchLabels[prov] || prov) + ' (no key)';
+        opt.textContent = (info.label || prov) + ' (no key)';
         opt.style.color = 'var(--red)';
       } else {
-        opt.textContent = _searchLabels[prov] || prov;
+        opt.textContent = info.label || prov;
         opt.style.color = '';
       }
     });
