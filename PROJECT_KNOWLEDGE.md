@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE — Odysseus
 
-> Last updated: 2026-06-08
+> Last updated: 2026-06-09
 > Status: Active
 
 ---
@@ -22,7 +22,7 @@ A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that
 | Frontend        | Vanilla JS SPA (no framework), ES modules, CSS |
 | Vector Store    | ChromaDB (standalone service)                |
 | Embeddings      | fastembed (ONNX, local) + optional OpenAI-compatible API endpoint |
-| Search          | SearXNG (self-hosted) + optional DuckDuckGo  |
+| Search          | Pluggable provider registry — SearXNG, DuckDuckGo, Brave, Google PSE, Tavily, Serper, Bing, Search1API, Firecrawl, Exa |
 | Styling         | Vanilla CSS                                  |
 | Testing         | pytest + pytest-asyncio                      |
 | Key Libraries   | httpx, pydantic, beautifulsoup4, pypdf, caldav, icalendar, python-dateutil, croniter, cryptography, bcrypt, mcp, qrcode, nh3, markdown |
@@ -183,7 +183,7 @@ A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that
 │   ├── emoji_routes.py       # Emoji SVG proxy
 │   └── device_flow.py        # OAuth device-flow helpers
 ├── services/                 # Service modules
-│   ├── search/               # Web search service (providers: SearXNG, DuckDuckGo, etc.)
+│   ├── search/               # Web search service — pluggable provider registry (PROVIDER_REGISTRY + PROVIDER_FUNCTIONS in providers.py)
 │   ├── memory/               # Memory extraction + skill management
 │   ├── research/             # Research orchestration
 │   ├── docs/                 # Document service
@@ -285,7 +285,8 @@ Key files:
 | `notes` | id (PK), owner, title, content, color, is_pinned, is_archived, reminder_at, checklist (JSON), tags, folder, shared_with | |
 | `contacts` | id (PK), owner, carddav_url, carddav_username, carddav_password (encrypted), name, email, phone, organization, photo, vcard_raw, sync_token, etag | |
 | `crew_members` | id (PK), name, system_prompt, model, endpoint_url, temperature, owner, session_id (FK→sessions) | belongs_to session |
-| `skill_definitions` | id (PK), name, description, author, instructions, triggers (JSON), tools, context, owner, is_active, last_audited_at, audit_score | |
+| ~~`skill_definitions`~~ (correction 2026-06-09) | **Not a DB table.** Skills are stored as `SKILL.md` files under `data/skills/<category>/<name>/` (YAML frontmatter + markdown body), managed by `SkillsManager` (`services/memory/skills.py`); usage counters in `data/skills/_usage.json`. Owner-scoped via the `owner:` frontmatter field. | |
+| `memories` | id (PK), text, category, source, owner, session_id (FK→sessions), timestamp | belongs_to session; vector copies in `data/memory_vectors/` (ChromaDB/fastembed) |
 | `settings` | key (PK), value, type | |
 | `notifications` | id (PK), owner, title, body, type, link, is_read, created_at | |
 | `calendar_cache` | id (PK), owner, cal_data (JSON), account_id, calendar_id | |
@@ -398,6 +399,10 @@ RLS / access rules:
 | `LLM_CA_BUNDLE` | `src/tls_overrides.py` | Custom CA cert bundle for LLM endpoints |
 | `SEARXNG_INSTANCE` | `src/constants.py` | SearXNG URL for web search |
 | `SEARXNG_SECRET` | SearXNG config | SearXNG cookie/CSRF secret |
+| `DATA_BRAVE_API_KEY` | `services/search/providers.py` | Brave Search key (env fallback; primary: `brave_api_key` setting) |
+| `GOOGLE_API_KEY` | `services/search/providers.py` | Google PSE key (env fallback; also needs `google_pse_cx`) |
+| `TAVILY_API_KEY` / `SERPER_API_KEY` | `services/search/providers.py` | Tavily / Serper search keys (env fallback) |
+| `BING_API_KEY` / `SEARCH1API_API_KEY` / `FIRECRAWL_API_KEY` / `EXA_API_KEY` | `services/search/providers.py` | Keys for Bing, Search1API, Firecrawl, Exa providers (env fallback) |
 | `DATABASE_URL` | `core/database.py` | Database connection (default: SQLite) |
 | `ODYSSEUS_DATA_DIR` | `src/constants.py` | Override data directory path |
 | `AUTH_ENABLED` | `app.py` | Enable/disable auth |
@@ -490,7 +495,7 @@ RLS / access rules:
 | Authentication | ✅ Active | bcrypt, session cookies, 2FA (TOTP), API bearer tokens, per-user privileges |
 | Database | ✅ Active | SQLite via SQLAlchemy ORM (30+ tables) |
 | AI / LLM | ✅ Active | OpenAI-compatible client, multiple providers, streaming, tool calling |
-| Web Search | ✅ Active | SearXNG (primary), optional DuckDuckGo, Brave, Tavily, Serper, Google PSE |
+| Web Search | ✅ Active | Pluggable provider registry (10 providers): SearXNG, DuckDuckGo, Brave, Google PSE, Tavily, Serper, Bing, Search1API, Firecrawl, Exa. Per-provider API key (settings.json) with env-var fallback |
 | Agent | ✅ Active | Tool-using agent with MCP, web, files, shell, memory, skills |
 | Memory / Skills | ✅ Active | Persistent memory + skills, vector + keyword retrieval, ChromaDB + fastembed |
 | RAG (Personal Docs) | ✅ Active | ChromaDB-backed semantic document search |
@@ -617,6 +622,14 @@ RLS / access rules:
 - [ ] Provider setup/probing audit for all LLM providers
 - [ ] Offline/CDN vendor asset bundling
 
+**Search & Deep Research improvements** *(planned 2026-06-09)*
+- [ ] **Surface the actually-used search provider in the UI** — a key-requiring provider (e.g. Exa) with no API key returns `[]` *silently* (not an error), so `_build_provider_chain` falls through to the fallback (default DuckDuckGo) on every query. Today the only signal is logs + the report's stats `Search:` field. Add a visible cue (warn/badge when the selected provider can't run; show which provider actually carried the run). Refs: `services/search/core.py:91-116`, `services/search/providers.py`, `src/deep_research.py:575-582,920`.
+- [ ] **Honor a user-supplied output template in deep research** — the final report is forced through `FINAL_REPORT_PROMPT` (fixed structure: exec summary, `##` headings, ≥1500 words, conclusion, "magazine style"), which overrides any structure the user asked for. Add an optional "output format/structure" the final writer respects. Refs: `src/deep_research.py:127-146,732-740`.
+- [ ] **Expose / raise the deep-research length cap** — `research_max_tokens` (default 16384) caps report length and forces the synthesis step to compress; conflicts with "zero compression / fully developed" requests. Surface in the research UI with a note on the depth trade-off. Refs: `src/settings.py:90`, `src/deep_research.py:746`.
+- [ ] **Chat auto web-search uses the whole message as one query** — `comprehensive_web_search(message, ...)` passes the raw user message verbatim as the query, so long/structured prompts search badly. Derive a focused (LLM-condensed) query, or skip auto-search for long messages and rely on the agent `web_search` tool (model-written queries). Refs: `src/chat_processor.py:277-285`.
+- [ ] **Add server-side "Export to PDF"** for research reports / documents / chat answers — today PDF export is browser-print only (`window.print()`), and `/api/document/{id}/export-pdf` is form-fill only (requires a linked source PDF). No server-side markdown/HTML→PDF engine exists. Add a real report→PDF download. Refs: `src/visual_report.py:897`, `routes/document_routes.py:1384-1423`.
+- [ ] **In-product guidance: chat vs deep research** — users conflate the two. Deep research = web-grounded summarizer pipeline (own template + token cap); chat/agent + `web_search` tool = model-led (like Perplexity/Opus). Add a tooltip/hint clarifying when to use each.
+
 ---
 
 ## Decisions & Notes
@@ -629,6 +642,13 @@ RLS / access rules:
 - **Built on opencode agent framework** — Agent tool system, MCP, and skill system derived from opencode.
 - **Deep Research adapted from Alibaba Tongyi DeepResearch** — Multi-step research with visual report output.
 - **Cookbook based on llmfit** — Hardware fit scoring for model selection.
+- **Search providers use a pluggable registry** — `PROVIDER_REGISTRY` (per-provider metadata via the `ProviderInfo` dataclass: label, needs_key, needs_url, key_setting, env_var, hint, has_additional) + `PROVIDER_FUNCTIONS` (name→search fn) in `services/search/providers.py`. `_call_provider` does a registry lookup instead of if/elif. Adding a provider = add a `ProviderInfo` entry + a search fn + register it in `PROVIDER_FUNCTIONS`. `GET /api/search/providers` serves this metadata so the settings UI renders key/URL fields and hints dynamically (no hardcoded provider JS). `PROVIDER_INFO` retained as a backward-compatible `(label, needs_key, needs_url)` tuple map. *(2026-06-08, commit 182bd15)*
+- **Deep research is a web-search pipeline, not a single LLM call** — `src/deep_research.py` runs: classify → plan (3–6 sub-questions) → loop[generate queries → search → scrape/extract (dropping low-quality) → synthesize (compresses/dedupes) → stop?] → final report via the fixed `FINAL_REPORT_PROMPT`, capped by `research_max_tokens`. It does **not** honor a user-supplied output template, and its web-grounding adds little for conceptual/knowledge-synthesis tasks. For structured, no-compression documents, chat/agent mode (with the `web_search` tool) is the right tool, not deep research.
+- **Search runs one provider at a time with silent fallback** — `_build_provider_chain(primary)` = `[primary] + (search_fallback_chain or ["duckduckgo"])`. A provider with no API key returns `[]` (not an exception), so the chain silently advances. The provider that actually returned results is recorded in `DeepResearcher.providers_used` → surfaced in the report stats `Search:` field, and logged as `Research search: <prov> returned N results`. Odysseus does NOT query multiple providers in parallel and merge.
+- **PDF support is read + form-fill + browser-print only** — Odysseus reads/extracts PDFs (pypdf, PyMuPDF/fitz) and fills+exports PDF *forms* (`/api/document/{id}/export-pdf`, requires a linked source PDF). Research reports export to PDF via the browser print dialog (`window.print()`, `src/visual_report.py:897`). There is **no** server-side text/markdown/HTML→PDF generation engine (no weasyprint/reportlab/pdfkit/fpdf), and **no** agent tool to emit a `.pdf` from generated content.
+- **Skills are file-based SKILL.md, not a DB table** — under `data/skills/<category>/<name>/SKILL.md` (YAML frontmatter + body), managed by `SkillsManager` (`services/memory/skills.py`), created via `add_skill(...)` / `POST /api/skills/add`. Owner-scoped via the `owner` frontmatter field; published skills (`status: published`) always qualify for prompt injection (drafts gated by `skill_autosave_min_confidence`, max `skill_max_injected` per request). The Skills tab "Built-in" section is separate — it lists the agent's native tools from `agent_loop.TOOL_SECTIONS`, not editable skills.
+- **Memory is on by default** (`memory: True` in `DEFAULT_SETTINGS`) — backed by the `memories` table + `data/memory.json`, with a vector copy in `data/memory_vectors/` (ChromaDB/fastembed). Empty until conversations populate it; it is active, not broken, when the list looks empty on a fresh install.
+- **Kimi (Moonshot) is a first-class provider** — OpenAI-compatible, base `https://api.moonshot.ai/v1` (`.cn` also recognized). Wired in `static/js/slashCommands.js` (setup `kimi`/`moonshot`), `static/js/providers.js` (`_ENDPOINT_LABELS`), and `src/llm_core.py` (`_provider_label`). Uses the generic `openai` provider path (no special headers); logo already existed in `providers.js`. Same pattern as DeepSeek/Mistral (display-only label, not a behavior-distinct provider id).
 
 ---
 
@@ -636,3 +656,6 @@ RLS / access rules:
 | Date | Summary |
 |------|---------|
 | 2026-06-08 | Initial PROJECT_KNOWLEDGE.md created from code scan. Documented project structure, schema, all route files, env vars, systems, and features. |
+| 2026-06-09 | Synced doc with the search provider registry refactor (commit 182bd15): documented `PROVIDER_REGISTRY`/`PROVIDER_FUNCTIONS`, the 4 new providers (Bing, Search1API, Firecrawl, Exa), dynamic `/api/search/providers` metadata, and new `*_api_key` settings. Uncommitted/in-progress: `research_handler.py` endpoint-probe timeout 15→60s & retries 1→2; `settings.js` hides result count when the active provider has no key. |
+| 2026-06-09 | Q&A on search + deep research. Confirmed Exa is active (via stats `Search:` field). Documented how deep research works (pipeline + fixed `FINAL_REPORT_PROMPT` template + `research_max_tokens` cap) and why it ignores user output structure, search silent-fallback semantics + how to verify the used provider, and PDF capabilities (read/form-fill/browser-print only; no server-side text→PDF). Captured a 6-item Search & Deep Research improvement plan under Known Issues / TODOs. |
+| 2026-06-09 | Added **Kimi (Moonshot)** as a first-class LLM provider (`slashCommands.js` setup + `providers.js`/`llm_core.py` endpoint labels; OpenAI-compatible, logo already present). Seeded **10 published starter skills** for owner `yahya` across productivity/research/memory/system via `SkillsManager` (files under `data/skills/`). Corrected the schema doc: skills are file-based `SKILL.md`, not a `skill_definitions` table; added the real `memories` table row. |

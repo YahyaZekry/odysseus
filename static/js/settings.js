@@ -1161,13 +1161,19 @@ async function initSearchSettings() {
       var extra = '';
       var kf = keyFieldFor(active);
       var hasKey = kf ? ((s[kf] || '').trim() || (s.search_api_key || '').trim()) : false;
+      var canRun = true;
       if (_findProvider(active).needs_key) {
         extra = hasKey ? ' (key set)' : ' (no key)';
+        canRun = !!hasKey;
       } else if (active === 'searxng' && (s.search_url || '').trim()) {
         extra = ' (' + s.search_url + ')';
       }
-      var count = s.search_result_count || 5;
-      msg.textContent = 'Active: ' + label + extra + ' \u00b7 ' + count + ' results';
+      if (canRun) {
+        var count = s.search_result_count || 5;
+        msg.textContent = 'Active: ' + label + extra + ' \u00b7 ' + count + ' results';
+      } else {
+        msg.textContent = 'Active: ' + label + extra;
+      }
       msg.style.color = active === 'disabled' ? 'var(--red)' : (_findProvider(active).needs_key && !hasKey) ? 'var(--red)' : 'var(--fg)';
     } catch (e) { /* ignore */ }
   }
