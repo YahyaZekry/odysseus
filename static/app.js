@@ -1145,6 +1145,22 @@ function initializeEventListeners() {
         }
         userBarName.textContent = displayName;
         if (userBarAvatar) userBarAvatar.textContent = d.username.charAt(0).toUpperCase();
+        window._currentUsername = d.username;
+        // Load avatar from prefs
+        fetch('/api/prefs/avatar_file_id', { credentials: 'same-origin' })
+          .then(r => r.json())
+          .then(p => {
+            if (p.value) {
+              var url = '/api/upload/' + p.value;
+              window._userAvatarUrl = url;
+              if (userBarAvatar) {
+                userBarAvatar.style.backgroundImage = 'url(' + url + ')';
+                userBarAvatar.style.backgroundSize = 'cover';
+                userBarAvatar.style.backgroundPosition = 'center';
+                userBarAvatar.textContent = '';
+              }
+            }
+          }).catch(() => {});
       }
       // Apply per-user privilege restrictions
       if (d.privileges) {

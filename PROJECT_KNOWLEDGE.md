@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE — Odysseus
 
-> Last updated: 2026-06-09
+> Last updated: 2026-06-11
 > Status: Active
 
 ---
@@ -659,3 +659,4 @@ RLS / access rules:
 | 2026-06-09 | Synced doc with the search provider registry refactor (commit 182bd15): documented `PROVIDER_REGISTRY`/`PROVIDER_FUNCTIONS`, the 4 new providers (Bing, Search1API, Firecrawl, Exa), dynamic `/api/search/providers` metadata, and new `*_api_key` settings. Uncommitted/in-progress: `research_handler.py` endpoint-probe timeout 15→60s & retries 1→2; `settings.js` hides result count when the active provider has no key. |
 | 2026-06-09 | Q&A on search + deep research. Confirmed Exa is active (via stats `Search:` field). Documented how deep research works (pipeline + fixed `FINAL_REPORT_PROMPT` template + `research_max_tokens` cap) and why it ignores user output structure, search silent-fallback semantics + how to verify the used provider, and PDF capabilities (read/form-fill/browser-print only; no server-side text→PDF). Captured a 6-item Search & Deep Research improvement plan under Known Issues / TODOs. |
 | 2026-06-09 | Added **Kimi (Moonshot)** as a first-class LLM provider (`slashCommands.js` setup + `providers.js`/`llm_core.py` endpoint labels; OpenAI-compatible, logo already present). Seeded **10 published starter skills** for owner `yahya` across productivity/research/memory/system via `SkillsManager` (files under `data/skills/`). Corrected the schema doc: skills are file-based `SKILL.md`, not a `skill_definitions` table; added the real `memories` table row. |
+| 2026-06-11 | Completed Kimi integration by adding it to the UI provider dropdown (`index.html`) and bumping the service worker cache (`sw.js`). Synced the local `dev` branch with `upstream/dev` (bringing in 50+ commits) and resolved merge conflicts in `llm_core.py` and `slashCommands.js` to preserve both Kimi and upstream's NVIDIA providers. Pushed the resolved merge to `origin/dev`. |

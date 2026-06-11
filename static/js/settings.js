@@ -2042,6 +2042,79 @@ function initAccount() {
       if (avatarEl) {
         const initial = (d.username || '?')[0].toUpperCase();
         avatarEl.textContent = initial;
+        avatarEl.style.backgroundImage = '';
+        avatarEl.style.backgroundSize = 'cover';
+        avatarEl.style.backgroundPosition = 'center';
+        // Load existing avatar
+        fetch('/api/prefs/avatar_file_id', { credentials: 'same-origin' })
+          .then(r => r.json())
+          .then(p => {
+            if (p.value) {
+              const url = '/api/upload/' + p.value;
+              avatarEl.style.backgroundImage = 'url(' + url + ')';
+              avatarEl.textContent = '';
+              window._userAvatarUrl = url;
+            }
+          }).catch(() => {});
+        // Click to upload
+        avatarEl.addEventListener('click', () => {
+          const inp = document.getElementById('settings-avatar-input');
+          if (inp) inp.click();
+        });
+      }
+      // Handle file selection
+      const fileInput = document.getElementById('settings-avatar-input');
+      if (fileInput) {
+        fileInput.addEventListener('change', async () => {
+          const file = fileInput.files?.[0];
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) {
+            if (uiModule && uiModule.showError) uiModule.showError('Avatar must be under 5 MB');
+            fileInput.value = '';
+            return;
+          }
+          const fd = new FormData();
+          fd.append('files', file);
+          try {
+            const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+            if (!res.ok) { if (uiModule && uiModule.showError) uiModule.showError('Upload failed'); fileInput.value = ''; return; }
+            const data = await res.json();
+            const fileId = data.files[0].id;
+            // Save to prefs
+            const prefRes = await fetch('/api/prefs/avatar_file_id', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value: fileId })
+            });
+            if (!prefRes.ok) { if (uiModule && uiModule.showError) uiModule.showError('Failed to save avatar'); fileInput.value = ''; return; }
+            // Update display
+            const avatarEl = el('settings-account-avatar');
+            const url = '/api/upload/' + fileId;
+            if (avatarEl) {
+              avatarEl.style.backgroundImage = 'url(' + url + ')';
+              avatarEl.textContent = '';
+            }
+            window._userAvatarUrl = url;
+            // Also refresh sidebar
+            const sidebarAvatar = document.getElementById('user-bar-avatar');
+            if (sidebarAvatar) {
+              sidebarAvatar.style.backgroundImage = 'url(' + url + ')';
+              sidebarAvatar.style.backgroundSize = 'cover';
+              sidebarAvatar.style.backgroundPosition = 'center';
+              sidebarAvatar.textContent = '';
+            }
+            // Refresh existing chat bubbles
+            document.querySelectorAll('.msg-user .role .msg-user-avatar').forEach(function(av) {
+              av.style.backgroundImage = 'url(' + url + ')';
+              av.textContent = '';
+            });
+            if (uiModule && uiModule.showToast) uiModule.showToast('Avatar updated');
+          } catch (e) {
+            if (uiModule && uiModule.showError) uiModule.showError('Upload failed');
+            console.error(e);
+          }
+          fileInput.value = '';
+        });
       }
     }).catch(() => {});
 
