@@ -180,9 +180,11 @@ A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that
 │   ├── editor_draft_routes.py # Image editor drafts
 │   ├── font_routes.py        # Font management
 │   ├── workspace_routes.py   # Workspace management
+│   ├── feed_routes.py        # RSS Feed Reader CRUD, articles, OPML, AI summarize, refresh
 │   ├── emoji_routes.py       # Emoji SVG proxy
 │   └── device_flow.py        # OAuth device-flow helpers
 ├── services/                 # Service modules
+│   ├── feed/                 # RSS/Atom feed reader: fetcher, discovery, OPML, full-content, YouTube resolver
 │   ├── search/               # Web search service — pluggable provider registry (PROVIDER_REGISTRY + PROVIDER_FUNCTIONS in providers.py)
 │   ├── memory/               # Memory extraction + skill management
 │   ├── research/             # Research orchestration
@@ -214,6 +216,7 @@ A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that
 │       ├── calendar.js, calendar/
 │       ├── email*.js         # Email UI modules
 │       ├── notes.js          # Notes/todos UI
+│       ├── feedReader.js     # RSS Feed Reader UI
 │       ├── gallery*.js       # Gallery UI
 │       ├── admin.js          # Admin settings
 │       ├── compare/          # Model comparison UI
@@ -291,7 +294,10 @@ Key files:
 | `notifications` | id (PK), owner, title, body, type, link, is_read, created_at | |
 | `calendar_cache` | id (PK), owner, cal_data (JSON), account_id, calendar_id | |
 | `editor_drafts` | id (PK), owner, name, state (JSON), thumbnail, updated_at | |
-| `vault_items` | id (PK), owner, name, content (encrypted), type | |
+| `vault_items` | id (PK), owner, name, content (encrypted), type |
+| `feed_groups` | id (PK), owner, name | has_many feeds |
+| `feeds` | id (PK), owner, group_id (FK→feed_groups), title, site_url, feed_url, icon, fetch_interval, last_fetched, error_count, last_error, enabled, created_at | has_many articles, belongs_to feed_group |
+| `feed_sync_accounts` | id (PK), owner, service (greader/newsblur/inoreader), credentials (encrypted), sync_enabled, last_synced | | |
 
 RLS / access rules:
 - Most tables are owner-scoped: queries filter by `owner == current_user` or `owner IS NULL`
@@ -381,6 +387,18 @@ RLS / access rules:
 | `DELETE /api/tokens/{id}` | Session | Delete API token |
 | `GET /api/auth/assistant/...` | Session | Personal assistant settings, status, run |
 | `POST /api/tasks/{id}/webhook/{token}` | None | External webhook trigger (token-authenticated) |
+| `GET/POST/PUT/DELETE /api/feeds` | Session | Feed CRUD (list, create, update, delete, groups) |
+| `GET /api/feeds/articles` | Session | List articles with filters (feed_id, group_id, read, starred, search, limit, offset) |
+| `POST /api/feeds/{id}/refresh` | Session | Force refresh a single feed |
+| `POST /api/feeds/refresh-all` | Session | Queue refresh of all feeds (background task) |
+| `POST /api/feeds/articles/{id}/read` | Session | Mark article read/unread |
+| `POST /api/feeds/articles/{id}/star` | Session | Star/unstar article |
+| `POST /api/feeds/articles/read-all` | Session | Mark all articles as read (optionally by feed_id) |
+| `POST /api/feeds/articles/{id}/summarize` | Session | AI-generated article summary |
+| `POST /api/feeds/articles/{id}/full-content` | Session | Extract full article content via trafilatura |
+| `POST /api/feeds/discover` | Session | Discover RSS feeds from a URL |
+| `POST /api/feeds/opml/export` | Session | Export feeds as OPML (returns XML) |
+| `POST /api/feeds/opml/import` | Session | Import feeds from OPML |
 | `GET /api/companion/ping/info/models/pair` | Session | Companion app endpoints |
 
 ---
@@ -516,6 +534,7 @@ RLS / access rules:
 | Shell | ✅ Active | User-facing command execution (admin-gated) |
 | Companion App | ✅ Active | Mobile companion pairing endpoints |
 | Codex / Claude Integration | ✅ Active | External AI code editor bridge |
+| RSS Feed Reader | ✅ Active | RSS/Atom feed reader with AI summaries, OPML import/export, 3-pane UI, YouTube channel support |
 | Notifications (ntfy) | ✅ Active | Push notification support |
 | Docker Deployment | ✅ Active | Docker Compose with GPU overlays |
 | PWA | ✅ Active | Service worker, manifest.json |
@@ -552,6 +571,7 @@ RLS / access rules:
 - **2FA** — Two-factor authentication via TOTP. *(added: detected)*
 - **Emoji SVG Proxy** — Same-origin lazy-cached Twemoji SVGs for chat rendering. *(added: detected)*
 - **TTS/STT** — Text-to-speech and speech-to-text (optional local Whisper STT). *(added: detected)*
+- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries, article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution. *(added: 2026-06-11)*
 
 ---
 
@@ -604,6 +624,20 @@ RLS / access rules:
 3. Actions include: send email, run script, webhook, agent run, etc.
 4. Results logged, notifications sent
 
+**Feed Reader — Add Feed from URL**
+1. User enters URL in "Add Feed" modal
+2. Frontend calls `POST /api/feeds/discover` → `discover_feeds()` auto-detects RSS/Atom feeds
+3. If the URL is a YouTube channel/handle/playlist URL, `resolve_youtube_feed()` resolves it to `feeds/videos.xml`
+4. User selects which discovered feed to add
+5. Frontend calls `POST /api/feeds` to create the feed (sets YouTube favicon if applicable)
+6. Optionally, `POST /api/feeds/{id}/refresh` fetches the feed immediately
+
+**Feed Reader — Read and Navigate Articles**
+1. Click feed in sidebar → `_loadArticles()` fetches articles (paginated, filterable by unread/starred/feed)
+2. Click article in list → `_openReader()` shows reader view (title, date, full content or summary)
+3. Toolbar: back, star/unstar, AI summarize, full-content fetch, open original, mark read
+4. Reader view is inside the main RSS modal with drag/dock/fullscreen support
+
 ---
 
 ## Known Issues / TODOs
@@ -630,6 +664,17 @@ RLS / access rules:
 - [ ] **Add server-side "Export to PDF"** for research reports / documents / chat answers — today PDF export is browser-print only (`window.print()`), and `/api/document/{id}/export-pdf` is form-fill only (requires a linked source PDF). No server-side markdown/HTML→PDF engine exists. Add a real report→PDF download. Refs: `src/visual_report.py:897`, `routes/document_routes.py:1384-1423`.
 - [ ] **In-product guidance: chat vs deep research** — users conflate the two. Deep research = web-grounded summarizer pipeline (own template + token cap); chat/agent + `web_search` tool = model-led (like Perplexity/Opus). Add a tooltip/hint clarifying when to use each.
 
+**RSS Feed Reader** *(added 2026-06-11)*
+- [ ] **TTS button relies on `window.aiTTSManager`** — hidden if absent; needs existing TTS module reference wired in
+- [ ] **Per-feed fetch interval** — `fetch_interval` column exists but not exposed in UI or scheduler
+- [ ] **Auto-refresh** — need to wire into existing `task_scheduler` for background polling
+- [ ] **Keyboard shortcuts** — j/k navigate articles, m read/unread, s star
+- [ ] **Infinite scroll** — article list is paginated (offset/limit) but no scroll trigger for next page
+- [ ] **MCP server** — expose feed read/search/subscribe to the AI agent via MCP
+- [ ] **Dedup UI** — `feedparser` returns empty content/summary for YouTube entries, resulting in empty snippets
+- [ ] **CSP scoped to HTTPS-images** — `img-src ... https:` allows all HTTPS origins, which is broad. Could scope to known CDNs (`i*.ytimg.com`, `*.ytimg.com`) for stricter policy
+- [ ] **YouTube embed video Error 153 persists** — in-page overlay embed (`www.youtube.com/embed/VIDEO_ID?autoplay=1`) gives YouTube's internal "Video player configuration error" for at least some videos (Diego Woods channel, possibly shorts). Workaround: "Watch on YouTube" link below the embed opens video directly on YouTube (counts views, new tab). Root cause is YouTube-side (embedding disabled per-video or per-channel), not CSP or origin.
+
 ---
 
 ## Decisions & Notes
@@ -649,6 +694,14 @@ RLS / access rules:
 - **Skills are file-based SKILL.md, not a DB table** — under `data/skills/<category>/<name>/SKILL.md` (YAML frontmatter + body), managed by `SkillsManager` (`services/memory/skills.py`), created via `add_skill(...)` / `POST /api/skills/add`. Owner-scoped via the `owner` frontmatter field; published skills (`status: published`) always qualify for prompt injection (drafts gated by `skill_autosave_min_confidence`, max `skill_max_injected` per request). The Skills tab "Built-in" section is separate — it lists the agent's native tools from `agent_loop.TOOL_SECTIONS`, not editable skills.
 - **Memory is on by default** (`memory: True` in `DEFAULT_SETTINGS`) — backed by the `memories` table + `data/memory.json`, with a vector copy in `data/memory_vectors/` (ChromaDB/fastembed). Empty until conversations populate it; it is active, not broken, when the list looks empty on a fresh install.
 - **Kimi (Moonshot) is a first-class provider** — OpenAI-compatible, base `https://api.moonshot.ai/v1` (`.cn` also recognized). Wired in `static/js/slashCommands.js` (setup `kimi`/`moonshot`), `static/js/providers.js` (`_ENDPOINT_LABELS`), and `src/llm_core.py` (`_provider_label`). Uses the generic `openai` provider path (no special headers); logo already existed in `providers.js`. Same pattern as DeepSeek/Mistral (display-only label, not a behavior-distinct provider id).
+- **RSS feed reader uses a Notes-like centered modal** — consistent with Notes, Email, Calendar behavior (centered backdrop modal with drag/snap/dock via `makeWindowDraggable`)
+- **RSS reader uses feedparser directly** — rather than httpx+XML parsing. Battle-tested, covers RSS and Atom both.
+- **`services/feed/full_content.py` uses trafilatura** — lightweight, no browser engine needed, produces clean Markdown
+- **`_refresh_single()` runs as background task** via `BackgroundTasks` — non-blocking refresh-all with per-feed progress tracking
+- **AI summary reuses `src.llm_core.query_llm()`** — no new provider infra
+- **No OPML validation on import** — best-effort parse, errors silently drop malformed outlines
+- **CSP `img-src` was missing `https:`** — blocked YouTube thumbnails (from `i*.ytimg.com`) and favicons. Fixed by adding `https:` to the allowlist.
+- **YouTube embed → Error 153** — YouTube's in-page embed (iframe) fails with Error 153 ("Video player configuration error") for some videos. Embed URL returns HTTP 200 but empty content. Caused by YouTube-side restrictions (embedding disabled, shorts, etc.) not CSP. Three approaches attempted: (1) inline iframe in reader → Error 153; (2) `window.open` popup → opened as new tab (browser ignores popup features); (3) in-page modal overlay with embed + "Watch on YouTube" fallback link → embed still Error 153, fallback link opens video directly on YouTube (counts views). Current approach: in-page modal tries embed on open, shows fallback link below.
 
 ---
 
@@ -664,3 +717,5 @@ RLS / access rules:
 | 2026-06-11 | **Navyseal theme**: new built-in theme `navyseal` (bg:#0a1628, fg:#b0cce8, panel:#0e1e36, border:#f0c800/YELLOW, red:#00bcd4/cyan). Default background pattern: aurora. |
 | 2026-06-11 | **Neon glow toggle**: theme customize tab option to toggle pulsing box-shadow glow on all bordered elements (chat bubbles, input area, admin cards, modals, sidebar). Uses `body.neon-glow` class + `@keyframes neon-glow-pulse` animation on `--border` color. Saved in theme state alongside frosted. |
 | 2026-06-11 | **6 new canvas background animations**: Aurora (slow-moving light curtains), Matrix Rain (falling katakana characters), Waves (undulating sine waves), Nebula (8 swirling gas blobs with HSL colors), Ripples (expanding concentric rings), Hex Grid (pulsing hexagons with staggered breathing). Registered in theme pattern system (`_BG_CLASSES`, `_CANVAS_PATTERNS`, dropdown options, canvas cleanup selector). Fixed hex grid row count (used `H/h` instead of `H/spacingY`) and added negative offset for full coverage. Increased hex visibility with fill+stroke and wider alpha/size pulse range. |
+| 2026-06-11 | **RSS Feed Reader ("SmartRSS")**: New feature — 3-pane RSS reader with feed list sidebar, article list, and reader view. DB models: `FeedGroup`, `Feed`, `Article`, `FeedSyncAccount`. Backend: `services/feed/` (fetcher, discovery, OPML, full-content, YouTube resolver) + `routes/feed_routes.py` (full CRUD, articles, refresh, summarize, OPML). Frontend: `static/js/feedReader.js` + `.rss-*` CSS in `style.css`. Wired into `app.py`, `app.js`, `index.html` (nav rail + sidebar). YouTube channel URL resolution via `services/feed/youtube.py`. Window drag/snap/fullscreen via `makeWindowDraggable`. **Fixes**: CSP `img-src` missing `https:` blocked YouTube thumbnails/favicon → added `https:`; delete button added to feed items (always visible, right side); thumbnails switched from `<img>` to `background-image` for reliability. |
+| 2026-06-11 | **YouTube video playback**: Replaced embed iframe approach (Error 153) with in-page modal overlay. Clicking ▶ opens a dark modal with YouTube embed + "Watch on YouTube" fallback link below. Embed still gives Error 153 for some videos — fallback link works (opens YouTube directly, counts views). Removed `window.open` popup approach (browser opens tab instead of popup). Added modal CSS, `_openVideoModal()` / `_closeVideoModal()` functions, event listeners for close button/backdrop/Escape. |

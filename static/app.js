@@ -24,6 +24,7 @@ import galleryModule from './js/gallery.js';
 import tasksModule from './js/tasks.js';
 import calendarModule from './js/calendar.js';
 import notesModule from './js/notes.js';
+import feedReaderModule from './js/feedReader.js';
 import adminModule from './js/admin.js';
 import settingsModule from './js/settings.js';
 // Eagerly bind unified minimize/restore behavior across all tool modals.
@@ -47,6 +48,7 @@ import { initSectionCollapse, initSectionDrag } from './js/section-management.js
 
 const API_BASE = window.location.origin;
 window.themeModule = themeModule;
+window.feedReaderModule = feedReaderModule;
 window.sessionModule = sessionModule;
 window.uiModule = uiModule;
 window.adminModule = adminModule;
@@ -906,15 +908,40 @@ function initializeEventListeners() {
     });
   }
 
+  // RSS Feeds tool button
+  const toolRssBtn = el('tool-rss-btn');
+  if (toolRssBtn) {
+    toolRssBtn.addEventListener('click', () => {
+      if (feedReaderModule) {
+        if (notesModule && notesModule.isPanelOpen()) notesModule.closePanel();
+        feedReaderModule.togglePanel();
+      }
+    });
+  }
+
   // Notes tool button
   const toolNotesBtn = el('tool-notes-btn');
   if (toolNotesBtn) {
     toolNotesBtn.addEventListener('click', () => {
       if (notesModule) {
+        if (feedReaderModule && feedReaderModule.isOpen()) feedReaderModule.closePanel();
         notesModule.togglePanel();
       }
     });
   }
+
+  // Close RSS when opening other sidebar tools
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    const section = target.closest('.section-header-flex, .list-item, .icon-rail-btn');
+    if (!section) return;
+    if (section.id === 'tool-rss-btn' || section.id === 'rail-rss') return;
+    if (section.closest('#rss-pane, .rss-pane-backdrop')) return;
+    if (feedReaderModule && feedReaderModule.isOpen()) {
+      // Small delay so the other tool's handler runs first
+      setTimeout(() => feedReaderModule.closePanel(), 0);
+    }
+  }, true);
   // Refresh notes due-reminder badge on load and every 5 minutes
   if (notesModule && notesModule.refreshDueBadge) {
     notesModule.refreshDueBadge();
@@ -1040,6 +1067,7 @@ function initializeEventListeners() {
       setTimeout(_goFullscreen, 50);
       setTimeout(_goFullscreen, 200);
     },
+    '/feeds':    () => document.getElementById('tool-rss-btn')?.click(),
     '/memory':   () => document.getElementById('tool-memory-btn')?.click(),
     '/gallery':  () => document.getElementById('tool-gallery-btn')?.click(),
     '/tasks':    () => document.getElementById('tool-tasks-btn')?.click(),
@@ -3439,6 +3467,7 @@ function startOdysseusApp() {
     'rail-gallery':   'tool-gallery-btn',
     'rail-tasks':     'tool-tasks-btn',
     'rail-calendar':  'tool-calendar-btn',
+    'rail-rss':       'tool-rss-btn',
     'rail-notes':     'tool-notes-btn',
     'rail-memory':    'tool-memory-btn',
     'rail-theme':     'tool-theme-btn',

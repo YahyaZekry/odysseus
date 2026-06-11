@@ -755,6 +755,10 @@ app.include_router(setup_contacts_routes())
 from companion import setup_companion_routes
 app.include_router(setup_companion_routes())
 
+# RSS Feeds
+from routes.feed_routes import setup_feed_routes
+app.include_router(setup_feed_routes())
+
 # ========= ROUTES (kept in app.py) =========
 
 def _serve_html_with_nonce(request: Request, file_path: str) -> HTMLResponse:

@@ -92,6 +92,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "font-src 'self'; "
                 "img-src 'self' data: blob: https:; "
                 "connect-src 'self'; "
+                "frame-src https://www.youtube.com https://www.youtube-nocookie.com; "
                 "frame-ancestors 'none'"
             )
         elif is_tool_render:
@@ -118,10 +119,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
                 "font-src 'self' https://cdn.jsdelivr.net; "
-                "img-src 'self' data: blob:; "
+                "img-src 'self' data: blob: https:; "
                 "media-src 'self' blob:; "
                 "connect-src 'self'; "
-                "frame-src 'self'; "
+                "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; "
                 "frame-ancestors 'none'"
             )
         return response

@@ -41,5 +41,7 @@ mcp
 pyotp
 qrcode[pil]
 croniter
+feedparser
+trafilatura
 pytest
 pytest-asyncio

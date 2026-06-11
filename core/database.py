@@ -1648,6 +1648,62 @@ class Integration(TimestampMixin, Base):
     enabled = Column(Boolean, default=True)
 
 
+class FeedGroup(TimestampMixin, Base):
+    __tablename__ = "feed_groups"
+
+    id    = Column(String, primary_key=True, index=True)
+    owner = Column(String, nullable=True, index=True)
+    name  = Column(String, nullable=False)
+
+
+class Feed(TimestampMixin, Base):
+    __tablename__ = "feeds"
+
+    id             = Column(String, primary_key=True, index=True)
+    owner          = Column(String, nullable=True, index=True)
+    group_id       = Column(String, nullable=True, index=True)
+    title          = Column(String, nullable=False, default="")
+    site_url       = Column(String, nullable=False, default="")
+    feed_url       = Column(String, nullable=False, default="")
+    icon           = Column(String, nullable=True)
+    fetch_interval = Column(Integer, default=60)
+    last_fetched   = Column(DateTime, nullable=True)
+    error_count    = Column(Integer, default=0)
+    last_error     = Column(String, nullable=True)
+    enabled        = Column(Boolean, default=True)
+
+
+class Article(TimestampMixin, Base):
+    __tablename__ = "articles"
+
+    id            = Column(String, primary_key=True, index=True)
+    feed_id       = Column(String, nullable=False, index=True)
+    owner         = Column(String, nullable=True, index=True)
+    guid          = Column(String, nullable=True)
+    title         = Column(String, nullable=False, default="")
+    url           = Column(String, nullable=False, default="")
+    author        = Column(String, nullable=True)
+    content       = Column(Text, nullable=True)
+    summary       = Column(Text, nullable=True)
+    image         = Column(String, nullable=True)
+    published_at  = Column(DateTime, nullable=True)
+    fetched_at    = Column(DateTime, nullable=True)
+    is_read       = Column(Boolean, default=False)
+    is_starred    = Column(Boolean, default=False)
+    reading_time  = Column(Integer, default=0)
+
+
+class FeedSyncAccount(TimestampMixin, Base):
+    __tablename__ = "feed_sync_accounts"
+
+    id       = Column(String, primary_key=True, index=True)
+    owner    = Column(String, nullable=True, index=True)
+    type     = Column(String, nullable=False)  # miniflux, freshrss, feedly, etc.
+    name     = Column(String, nullable=False)
+    base_url = Column(String, nullable=False, default="")
+    api_key  = Column(String, nullable=True)
+    enabled  = Column(Boolean, default=True)
+
 
 
 
