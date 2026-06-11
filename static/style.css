@@ -36045,6 +36045,30 @@ body.theme-frosted .modal {
   background: color-mix(in srgb, #000 12%, transparent) !important;
 }
 
+/* ─── Neon border glow ────────────────────────────────────────────
+ *  Enabled via theme toggle (writes `body.neon-glow`). Applies a
+ *  pulsing box-shadow glow on bordered elements using --border color.
+ *  ───────────────────────────────────────────────────────────────── */
+@keyframes neon-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px color-mix(in srgb, var(--border) 50%, transparent),
+                0 0 10px color-mix(in srgb, var(--border) 25%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--border) 70%, transparent),
+                0 0 18px color-mix(in srgb, var(--border) 40%, transparent),
+                0 0 28px color-mix(in srgb, var(--border) 15%, transparent);
+  }
+}
+body.neon-glow .msg-user,
+body.neon-glow .msg-ai,
+body.neon-glow .chat-input-area,
+body.neon-glow .admin-card,
+body.neon-glow .modal-content,
+body.neon-glow #sidebar {
+  animation: neon-glow-pulse 3s ease-in-out infinite;
+}
+
 /* Mobile only: lift the Dependencies "Server" dropdown's selected text up ~2px. */
 @media (max-width: 768px) {
   #hwfit-deps-server { padding-bottom: 4px; line-height: 1; }
