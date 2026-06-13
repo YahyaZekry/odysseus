@@ -1,6 +1,6 @@
 # PROJECT KNOWLEDGE — Odysseus
 
-> Last updated: 2026-06-11
+> Last updated: 2026-06-12
 > Status: Active
 
 ---
@@ -599,11 +599,11 @@ RLS / access rules:
 5. Loop continues until task complete or max turns reached
 
 **Deep Research**
-1. User submits research query
-2. ResearchHandler spawns multi-step research job
-3. Sub-agents search web → gather content → read pages → synthesize
-4. Visual report generated via `visual_report.py`
-5. Report available for viewing/export
+1. User submits research query (optionally with `category` for format override)
+2. ResearchHandler spawns multi-step research job via `DeepResearcher`
+3. Pipeline: classify category → plan (sub-questions + key topics + success criteria) → loop[generate queries → search → fetch + extract → synthesize → stop?] → final report (via `FINAL_REPORT_PROMPT` with STRUCTURE CHECK at top)
+4. Visual report generated via `visual_report.py` (HTML with sources, stats, findings)
+5. Report available for viewing/export at `/api/research/report/{session_id}`
 
 **Email Triage**
 1. Background email pollers fetch new mail from IMAP
@@ -656,9 +656,9 @@ RLS / access rules:
 - [ ] Provider setup/probing audit for all LLM providers
 - [ ] Offline/CDN vendor asset bundling
 
-**Search & Deep Research improvements** *(planned 2026-06-09)*
+**Search & Deep Research improvements** *(planned 2026-06-09, partially fixed 2026-06-12)*
 - [ ] **Surface the actually-used search provider in the UI** — a key-requiring provider (e.g. Exa) with no API key returns `[]` *silently* (not an error), so `_build_provider_chain` falls through to the fallback (default DuckDuckGo) on every query. Today the only signal is logs + the report's stats `Search:` field. Add a visible cue (warn/badge when the selected provider can't run; show which provider actually carried the run). Refs: `services/search/core.py:91-116`, `services/search/providers.py`, `src/deep_research.py:575-582,920`.
-- [ ] **Honor a user-supplied output template in deep research** — the final report is forced through `FINAL_REPORT_PROMPT` (fixed structure: exec summary, `##` headings, ≥1500 words, conclusion, "magazine style"), which overrides any structure the user asked for. Add an optional "output format/structure" the final writer respects. Refs: `src/deep_research.py:127-146,732-740`.
+- [/] **Honor a user-supplied output template in deep research** — ~~the final report is forced through `FINAL_REPORT_PROMPT` (fixed structure: exec summary, `##` headings, ≥1500 words, conclusion, "magazine style"), which overrides any structure the user asked for.~~ **Fixed 2026-06-12**: STRUCTURE CHECK moved to top of `FINAL_REPORT_PROMPT` — if user's question contains a custom template (numbered sections, per-entry labels, discrete entries), it takes priority over the default essay format.
 - [ ] **Expose / raise the deep-research length cap** — `research_max_tokens` (default 16384) caps report length and forces the synthesis step to compress; conflicts with "zero compression / fully developed" requests. Surface in the research UI with a note on the depth trade-off. Refs: `src/settings.py:90`, `src/deep_research.py:746`.
 - [ ] **Chat auto web-search uses the whole message as one query** — `comprehensive_web_search(message, ...)` passes the raw user message verbatim as the query, so long/structured prompts search badly. Derive a focused (LLM-condensed) query, or skip auto-search for long messages and rely on the agent `web_search` tool (model-written queries). Refs: `src/chat_processor.py:277-285`.
 - [ ] **Add server-side "Export to PDF"** for research reports / documents / chat answers — today PDF export is browser-print only (`window.print()`), and `/api/document/{id}/export-pdf` is form-fill only (requires a linked source PDF). No server-side markdown/HTML→PDF engine exists. Add a real report→PDF download. Refs: `src/visual_report.py:897`, `routes/document_routes.py:1384-1423`.
@@ -705,6 +705,21 @@ RLS / access rules:
 
 ---
 
+## Fixed
+
+- **Deep research: `FINAL_REPORT_PROMPT` template override buried beneath essay defaults** — The "magazine-quality article" format requirements appeared before the "if user has a custom template, override these" check. Moved STRUCTURE CHECK to the top of `FINAL_REPORT_PROMPT`, before any format instructions. Default requirements are now explicitly labelled as fallbacks. *(fixed: 2026-06-12)*
+- **Deep research: `_classify_category` returns `None` for "general" category** — When the classifier answered "general", the method returned `None` (because `"general" not in CATEGORY_PROMPTS`). Changed to return `"general"` so `self.category` is always set. *(fixed: 2026-06-12)*
+- **Deep research: `SYNTHESIZE_PROMPT` lacked template-awareness** — Synthesis prompt used essay-format language ("well-organized report with logical flow") and had no instruction to preserve user's custom output structure across rounds. Added template-preservation instruction. *(fixed: 2026-06-12)*
+- **Deep research: `FINAL_REPORT_PROMPT` fallback instruction didn't require template compliance** — The "write from trained knowledge" instruction didn't tell the model to also apply the user's structural template. Extended to say "AND apply the structural template from the question above." *(fixed: 2026-06-12)*
+- **Deep research: `STOP_PROMPT` didn't evaluate structural completeness** — Stop criteria only checked topical coverage, not whether the user's template requirements (entry count, per-entry sections) were met. Added structural completeness criteria. *(fixed: 2026-06-12)*
+- **Deep research: `QUERY_GEN_PROMPT` domain example was Batman-specific** — Hardcoded "Batman" example didn't generalise to other subjects. Replaced with domain-agnostic `[character name]` example. *(fixed: 2026-06-12)*
+- **Deep research: `_final_report` unreachable when synthesis fails** — When synthesis timed out, `report` stayed `""`, triggering early return via `_fallback_report` — bypassing `_final_report` entirely where the trained-knowledge fallback and template instructions live. Changed to format findings and pass them to `_final_report` instead of exiting early. *(fixed: 2026-06-12)*
+- **Deep research: `_synthesize` timing out on long prompts** — Full 500+ word user prompt (with template instructions) was passed as `{question}` to every synthesis call, making prompts too large for `big-pickle` model within 180s timeout. Changed to pass `self.research_plan` (condensed summary, ~70% shorter) instead. *(fixed: 2026-06-12)*
+- **Deep research: `_fallback_report` used full question as H1** — `_fallback_report` dumped the entire 500+ word prompt as the document's H1 heading. Changed to use only first sentence, truncated to 120 chars. *(fixed: 2026-06-12)*
+- **Deep research: User's process instructions leaking into extractor** — `goal=question` passed the full user prompt (including "Your first task is discovery, not confirmation") into `EXTRACTOR_SYSTEM`, causing the extractor model to reason about the goal instead of extracting content. Changed to pass `self.research_plan or question[:200]` instead. *(fixed: 2026-06-12)*
+- **Deep research: Thinking tags leaking into extraction findings** — Model output "Thinking. 1. Analyze the Request:" before JSON, not caught by `strip_thinking` (which handles `<think>` tags but not numbered reasoning format). Added "Do NOT include any reasoning... Output ONLY valid JSON" to `EXTRACTOR_SYSTEM`. *(fixed: 2026-06-12)*
+---
+
 ## Session Log
 | Date | Summary |
 |------|---------|
@@ -719,3 +734,4 @@ RLS / access rules:
 | 2026-06-11 | **6 new canvas background animations**: Aurora (slow-moving light curtains), Matrix Rain (falling katakana characters), Waves (undulating sine waves), Nebula (8 swirling gas blobs with HSL colors), Ripples (expanding concentric rings), Hex Grid (pulsing hexagons with staggered breathing). Registered in theme pattern system (`_BG_CLASSES`, `_CANVAS_PATTERNS`, dropdown options, canvas cleanup selector). Fixed hex grid row count (used `H/h` instead of `H/spacingY`) and added negative offset for full coverage. Increased hex visibility with fill+stroke and wider alpha/size pulse range. |
 | 2026-06-11 | **RSS Feed Reader ("SmartRSS")**: New feature — 3-pane RSS reader with feed list sidebar, article list, and reader view. DB models: `FeedGroup`, `Feed`, `Article`, `FeedSyncAccount`. Backend: `services/feed/` (fetcher, discovery, OPML, full-content, YouTube resolver) + `routes/feed_routes.py` (full CRUD, articles, refresh, summarize, OPML). Frontend: `static/js/feedReader.js` + `.rss-*` CSS in `style.css`. Wired into `app.py`, `app.js`, `index.html` (nav rail + sidebar). YouTube channel URL resolution via `services/feed/youtube.py`. Window drag/snap/fullscreen via `makeWindowDraggable`. **Fixes**: CSP `img-src` missing `https:` blocked YouTube thumbnails/favicon → added `https:`; delete button added to feed items (always visible, right side); thumbnails switched from `<img>` to `background-image` for reliability. |
 | 2026-06-11 | **YouTube video playback**: Replaced embed iframe approach (Error 153) with in-page modal overlay. Clicking ▶ opens a dark modal with YouTube embed + "Watch on YouTube" fallback link below. Embed still gives Error 153 for some videos — fallback link works (opens YouTube directly, counts views). Removed `window.open` popup approach (browser opens tab instead of popup). Added modal CSS, `_openVideoModal()` / `_closeVideoModal()` functions, event listeners for close button/backdrop/Escape. |
+| 2026-06-12 | **Deep Research bugfix session**: Fixed 11 bugs across `deep_research.py` and `goal_based_extractor.py` identified through 3 audit iterations. Root causes: (1) `FINAL_REPORT_PROMPT` template override buried beneath essay defaults → moved STRUCTURE CHECK to top; (2) `_final_report` unreachable when synthesis fails → route findings through `_final_report` instead of early-exit via `_fallback_report`; (3) `_synthesize` timing out on full 500+ word prompt → pass condensed `research_plan` instead; (4) extractor reading user's process instructions as self-instructions → pass `research_plan` instead of full prompt as `goal`; (5) thinking tags leaking into extraction → "Output ONLY valid JSON" instruction; (6) `_classify_category` returning `None` for "general" → default to `"general"`. Also: expanded `_classify_category` prompt with per-category descriptions + examples; added domain-instruction to `QUERY_GEN_PROMPT`; added "General" category button to research panel (`panel.js`). All fixes verified against audit findings v1–v3. |

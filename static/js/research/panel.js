@@ -368,6 +368,7 @@ function _buildPanelHTML() {
         <textarea id="research-query" class="research-query" placeholder="e.g. Trace Odysseus's ten-year journey home from Troy — every island, monster, and detour, and why each one cost him" rows="4"></textarea>
         <div class="research-category-row" id="research-category-row">
           <button class="research-cat active" data-cat="" title="LLM auto-detects the best format">Auto</button>
+          <button class="research-cat" data-cat="general" title="Full research report — no format override">General</button>
           <button class="research-cat" data-cat="product">Product</button>
           <button class="research-cat" data-cat="comparison">Compare</button>
           <button class="research-cat" data-cat="howto">How-to</button>
