@@ -34,7 +34,7 @@ def setup_feed_routes():
             q = db.query(FeedGroup)
             if owner is not None:
                 q = q.filter(FeedGroup.owner == owner)
-            groups = [{"id": g.id, "name": g.name} for g in q.order_by(FeedGroup.name).all()]
+            groups = [{"id": g.id, "name": g.name, "parent_id": g.parent_id} for g in q.order_by(FeedGroup.name).all()]
             return {"groups": groups}
         finally:
             db.close()
@@ -45,7 +45,12 @@ def setup_feed_routes():
         from core.database import SessionLocal, FeedGroup
         db = SessionLocal()
         try:
-            row = FeedGroup(id=uuid.uuid4().hex, owner=owner, name=data.get("name", "New Group"))
+            row = FeedGroup(
+                id=uuid.uuid4().hex,
+                owner=owner,
+                name=data.get("name", "New Group"),
+                parent_id=data.get("parent_id"),
+            )
             db.add(row)
             db.commit()
             return {"ok": True, "id": row.id}
@@ -63,6 +68,8 @@ def setup_feed_routes():
                 return {"ok": False, "error": "Group not found"}
             if "name" in data:
                 row.name = data["name"]
+            if "parent_id" in data:
+                row.parent_id = data["parent_id"] or None
             db.commit()
             return {"ok": True}
         finally:
@@ -77,10 +84,64 @@ def setup_feed_routes():
             row = db.query(FeedGroup).filter(FeedGroup.id == group_id).first()
             if not row or (owner is not None and row.owner != owner):
                 return {"ok": False, "error": "Group not found"}
+            # Reparent children to the deleted group's parent
+            db.query(FeedGroup).filter(FeedGroup.parent_id == group_id).update(
+                {"parent_id": row.parent_id}
+            )
             db.query(Feed).filter(Feed.group_id == group_id).update({"group_id": None})
             db.delete(row)
             db.commit()
             return {"ok": True}
+        finally:
+            db.close()
+
+    @router.post("/groups/{group_id}/summarize")
+    def summarize_group(group_id: str, request: Request):
+        owner = _get_owner(request)
+        from core.database import SessionLocal, Article, Feed, FeedGroup
+        db = SessionLocal()
+        try:
+            group = db.query(FeedGroup).filter(FeedGroup.id == group_id).first()
+            if not group or (owner is not None and group.owner != owner):
+                return {"ok": False, "error": "Group not found"}
+            def _collect_descendant_ids(parent_id):
+                ids = []
+                for g in db.query(FeedGroup).filter(FeedGroup.parent_id == parent_id).all():
+                    ids.append(g.id)
+                    ids.extend(_collect_descendant_ids(g.id))
+                return ids
+            descendant_ids = _collect_descendant_ids(group_id)
+            all_ids = [group_id] + descendant_ids
+            feeds_q = db.query(Feed.id).filter(Feed.group_id.in_(all_ids))
+            feed_ids = [r[0] for r in feeds_q.all()]
+            if not feed_ids:
+                return {"ok": True, "summary": "No articles in this group."}
+            articles = db.query(Article).filter(
+                Article.feed_id.in_(feed_ids),
+                Article.is_read == False,
+            ).order_by(Article.published_at.desc().nullslast()).limit(10).all()
+            if not articles:
+                articles = db.query(Article).filter(
+                    Article.feed_id.in_(feed_ids),
+                ).order_by(Article.published_at.desc().nullslast()).limit(8).all()
+            text_parts = []
+            for a in articles:
+                title = a.title or "Untitled"
+                content = (a.content or "")[:400]
+                text_parts.append(f"## {title}\n\n{content}")
+            combined = "\n\n---\n\n".join(text_parts)
+            if not combined.strip():
+                return {"ok": True, "summary": "No content available to summarize."}
+            from src.llm_core import query_llm
+            prompt = (
+                f"Summarize the following {len(articles)} articles as a concise bullet-point digest. "
+                f"Group related articles under common themes. Keep each bullet to 1-2 sentences.\n\n{combined[:6000]}"
+            )
+            summary = query_llm(prompt, system_prompt="You are a helpful assistant that writes concise multi-article digests.", max_tokens=600)
+            return {"ok": True, "summary": summary}
+        except Exception as e:
+            logger.warning("Group summarize failed: %s", e)
+            return {"ok": False, "error": f"Group summarization failed: {e}"}
         finally:
             db.close()
 
@@ -286,6 +347,7 @@ def setup_feed_routes():
         request: Request,
         feed_id: Optional[str] = Query(None),
         group_id: Optional[str] = Query(None),
+        group_ids: Optional[str] = Query(None),
         starred: Optional[bool] = Query(None),
         read: Optional[bool] = Query(None),
         search: Optional[str] = Query(None),
@@ -301,7 +363,11 @@ def setup_feed_routes():
                 q = q.filter(Article.owner == owner)
             if feed_id:
                 q = q.filter(Article.feed_id == feed_id)
-            if group_id:
+            if group_ids:
+                gids = [g.strip() for g in group_ids.split(",") if g.strip()]
+                sub = db.query(Feed.id).filter(Feed.group_id.in_(gids)).subquery()
+                q = q.filter(Article.feed_id.in_(sub))
+            elif group_id:
                 sub = db.query(Feed.id).filter(Feed.group_id == group_id).subquery()
                 q = q.filter(Article.feed_id.in_(sub))
             if starred is True:
@@ -450,23 +516,71 @@ def setup_feed_routes():
         if not opml_text:
             return {"ok": False, "error": "OPML content required"}
         from services.feed.opml import parse_opml
-        from core.database import SessionLocal, Feed
+        from services.feed.youtube import resolve_youtube_feed
+        from core.database import SessionLocal, Feed, FeedGroup
+        from sqlalchemy import or_
         feeds = parse_opml(opml_text)
         db = SessionLocal()
         try:
+            # Resolve YouTube URLs and resolve group paths to group IDs
+            group_cache = {}  # (owner, tuple(path)) -> group_id
+
+            def _get_or_create_group(group_path):
+                if not group_path:
+                    return None
+                key = (owner, tuple(group_path))
+                if key in group_cache:
+                    return group_cache[key]
+                # Walk the path, creating missing groups
+                parent_id = None
+                for seg in group_path:
+                    filters = [FeedGroup.name == seg, FeedGroup.parent_id == parent_id]
+                    if owner is not None:
+                        filters.append(FeedGroup.owner == owner)
+                    else:
+                        filters.append(FeedGroup.owner.is_(None))
+                    existing = db.query(FeedGroup).filter(*filters).first()
+                    if existing:
+                        parent_id = existing.id
+                    else:
+                        g = FeedGroup(
+                            id=uuid.uuid4().hex,
+                            owner=owner,
+                            name=seg,
+                            parent_id=parent_id,
+                        )
+                        db.add(g)
+                        db.flush()
+                        parent_id = g.id
+                group_cache[key] = parent_id
+                return parent_id
+
             imported = 0
             for f in feeds:
-                existing = db.query(Feed).filter(
-                    Feed.feed_url == f["feed_url"],
-                    Feed.owner == owner if owner is not None else Feed.owner.is_(None),
-                ).first()
+                feed_url = f["feed_url"]
+                resolved = resolve_youtube_feed(feed_url)
+                if resolved:
+                    feed_url = resolved
+
+                # Check duplicate against both raw and resolved URL
+                dup_urls = [feed_url]
+                if resolved and resolved != f["feed_url"]:
+                    dup_urls.append(f["feed_url"])
+                filters = [Feed.feed_url.in_(dup_urls)]
+                if owner is not None:
+                    filters.append(Feed.owner == owner)
+                else:
+                    filters.append(Feed.owner.is_(None))
+                existing = db.query(Feed).filter(*filters).first()
                 if existing:
                     continue
+                group_id = _get_or_create_group(f.get("group_path", []))
                 row = Feed(
                     id=uuid.uuid4().hex,
                     owner=owner,
+                    group_id=group_id,
                     title=f["title"],
-                    feed_url=f["feed_url"],
+                    feed_url=feed_url,
                     site_url=f.get("site_url", ""),
                 )
                 db.add(row)

@@ -1281,6 +1281,28 @@ def llm_call_with_fallback(candidates, messages, **kwargs) -> str:
     raise last_err if last_err else HTTPException(503, "All fallback candidates failed")
 
 
+def query_llm(prompt: str, system_prompt: Optional[str] = None, owner: Optional[str] = None,
+              temperature: float = 0.3, max_tokens: int = 1024, timeout: int = 120) -> str:
+    """One-shot text completion using the configured background-task model.
+
+    Convenience wrapper for lightweight features (RSS article/group summaries,
+    etc.) that just need "prompt in → text out". Resolves the task endpoint,
+    which falls back task → utility → default chat model, so it works as long as
+    any chat model is configured. Raises on missing model or call failure;
+    callers are expected to catch and surface a friendly error.
+    """
+    from src.task_endpoint import resolve_task_endpoint
+    url, model, headers = resolve_task_endpoint(owner=owner)
+    if not url or not model:
+        raise RuntimeError("No task/utility/default model is configured — set one in Settings.")
+    messages: List[Dict] = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    return llm_call(url, model, messages, temperature=temperature,
+                    max_tokens=max_tokens, headers=headers, timeout=timeout)
+
+
 async def llm_call_async_with_fallback(candidates, messages, **kwargs) -> str:
     """Async variant of `llm_call_with_fallback` — same semantics."""
     cands = _dedupe_candidates(candidates)

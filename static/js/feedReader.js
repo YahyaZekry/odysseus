@@ -16,6 +16,11 @@ let _activeArticleId = null;
 let _filter = 'unread';
 let _searchQuery = '';
 let _pageOffset = 0;
+let _groupCollapsed = new Set();
+let _selectedFeedIds = new Set();
+let _selectMode = false;
+let _groupSummary = '';
+let _groupSummaryLoading = false;
 const PAGE_LIMIT = 50;
 
 function _api(path, opts = {}) {
@@ -130,7 +135,13 @@ function _openPanel() {
             <button class="rss-filter-btn" data-filter="all">All</button>
             <button class="rss-filter-btn" data-filter="starred">Starred</button>
           </div>
+          <div class="rss-groups-header">
+            <span>Groups</span>
+            <button id="rss-select-mode-btn" class="rss-select-mode-btn" title="Select multiple feeds"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Select</span></button>
+            <button id="rss-add-group-btn" class="rss-groups-add" title="Add group">+</button>
+          </div>
         </div>
+        <div class="rss-batch-bar" id="rss-batch-bar" style="display:none"></div>
         <div class="rss-feed-list" id="rss-feed-list"></div>
       </div>
       <div class="rss-main">
@@ -145,6 +156,7 @@ function _openPanel() {
             <a id="rss-reader-original" href="#" target="_blank" class="doc-action-icon-btn" title="Open original" style="text-decoration:none">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
+            <span class="rss-toolbar-sep" aria-hidden="true"></span>
             <button id="rss-reader-star" class="doc-action-icon-btn" title="Toggle star">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             </button>
@@ -188,6 +200,7 @@ function _wireEvents(pane) {
   _el('rss-add-feed-btn')?.addEventListener('click', _showAddFeedModal);
   _el('rss-refresh-all-btn')?.addEventListener('click', _refreshAll);
   _el('rss-opml-btn')?.addEventListener('click', _showOpmlModal);
+  _el('rss-add-group-btn')?.addEventListener('click', () => _promptCreateGroup(null));
   _el('rss-close-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
     closePanel();
@@ -219,6 +232,16 @@ function _wireEvents(pane) {
       _pageOffset = 0;
       _loadArticles();
     });
+  });
+
+  _el('rss-select-mode-btn')?.addEventListener('click', () => {
+    _selectMode = !_selectMode;
+    _el('rss-select-mode-btn')?.classList.toggle('active', _selectMode);
+    if (!_selectMode) {
+      _selectedFeedIds.clear();
+      _updateBatchBar();
+    }
+    _renderFeedList();
   });
 
   _el('rss-reader-content')?.addEventListener('click', (e) => {
@@ -258,27 +281,20 @@ async function _loadFeeds() {
   ]);
   _feeds = feedsRes.feeds || [];
   _groups = groupsRes.groups || [];
+  _selectedFeedIds.clear();
+  _groupSummary = '';
+  _updateBatchBar();
   _renderFeedList();
-  if (_activeFeedId) {
-    _loadArticles();
-  }
+  // Auto-load the current selection's articles (All Feeds by default) so the
+  // reader pane is never empty on open.
+  _loadArticles();
 }
 
 function _renderFeedList() {
   const list = _el('rss-feed-list');
   if (!list) return;
-  const groups = {};
-  const ungrouped = [];
-  for (const f of _feeds) {
-    if (f.group_id) {
-      if (!groups[f.group_id]) groups[f.group_id] = [];
-      groups[f.group_id].push(f);
-    } else {
-      ungrouped.push(f);
-    }
-  }
-  const groupMap = {};
-  for (const g of _groups) groupMap[g.id] = g.name;
+  const ungroupedFeeds = _feeds.filter(f => !f.group_id);
+  const tree = _buildGroupTree();
 
   let html = '';
   const totalUnread = _feeds.reduce((s, f) => s + (f.unread || 0), 0);
@@ -288,20 +304,12 @@ function _renderFeedList() {
     ${totalUnread > 0 ? `<span class="rss-unread-badge">${totalUnread}</span>` : ''}
   </div>`;
 
-  for (const [gid, gfeeds] of Object.entries(groups)) {
-    const gname = groupMap[gid] || 'Unnamed';
-    const gUnread = gfeeds.reduce((s, f) => s + (f.unread || 0), 0);
-    html += `<div class="rss-group-header" data-group-id="${gid}">
-      <span class="rss-group-name">${gname}</span>
-      ${gUnread > 0 ? `<span class="rss-unread-badge">${gUnread}</span>` : ''}
-    </div>`;
-    for (const f of gfeeds) {
-      html += _feedItemHtml(f);
-    }
+  for (const node of tree) {
+    html += _renderGroupTreeNode(node, 0);
   }
 
-  if (ungrouped.length > 0) {
-    for (const f of ungrouped) {
+  if (ungroupedFeeds.length > 0) {
+    for (const f of ungroupedFeeds) {
       html += _feedItemHtml(f);
     }
   }
@@ -309,12 +317,31 @@ function _renderFeedList() {
   list.innerHTML = html;
 
   list.querySelectorAll('.rss-feed-item').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
+      const cb = el.querySelector('.rss-feed-checkbox');
+      if (_selectMode || (cb && (e.target === cb || cb.contains(e.target)))) {
+        const fid = el.dataset.feedId;
+        if (!fid) return;
+        if (_selectedFeedIds.has(fid)) {
+          _selectedFeedIds.delete(fid);
+          if (cb) cb.checked = false;
+        } else {
+          _selectedFeedIds.add(fid);
+          if (cb) cb.checked = true;
+        }
+        _updateBatchBar();
+        return;
+      }
+      const delBtn = el.querySelector('.rss-feed-delete');
+      if (delBtn && (e.target === delBtn || delBtn.contains(e.target))) {
+        return; // handled separately
+      }
       list.querySelectorAll('.rss-feed-item').forEach(e => e.classList.remove('active'));
       list.querySelectorAll('.rss-group-header').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
       _activeFeedId = el.dataset.feedId || null;
       _activeGroupId = el.dataset.groupId || null;
+      _groupSummary = '';
       _pageOffset = 0;
       _closeReader();
       _loadArticles();
@@ -340,17 +367,165 @@ function _renderFeedList() {
   });
 
   list.querySelectorAll('.rss-group-header').forEach(el => {
-    el.addEventListener('click', () => {
-      list.querySelectorAll('.rss-feed-item').forEach(e => e.classList.remove('active'));
-      list.querySelectorAll('.rss-group-header').forEach(e => e.classList.remove('active'));
+    let clickTimer = null;
+
+    el.addEventListener('click', (e) => {
+      const target = e.target;
+      const addSubBtn = el.querySelector('.rss-group-add-sub');
+      const renameBtn = el.querySelector('.rss-group-rename');
+
+      if (addSubBtn && (target === addSubBtn || addSubBtn.contains(target))) {
+        e.stopPropagation();
+        _promptCreateGroup(el.dataset.groupId);
+        return;
+      }
+      if (renameBtn && (target === renameBtn || renameBtn.contains(target))) {
+        e.stopPropagation();
+        const gid = el.dataset.groupId;
+        const g = _groups.find(x => x.id === gid);
+        if (g) _promptRenameGroup(g);
+        return;
+      }
+
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        return;
+      }
+
+      clickTimer = setTimeout(() => {
+        clickTimer = null;
+        const gid = el.dataset.groupId;
+        if (_groupCollapsed.has(gid)) {
+          _groupCollapsed.delete(gid);
+        } else {
+          _groupCollapsed.add(gid);
+        }
+        _renderFeedList();
+        if (_activeGroupId) {
+          const activeEl = list.querySelector(`.rss-group-header[data-group-id="${_activeGroupId}"]`);
+          if (activeEl) activeEl.classList.add('active');
+        }
+      }, 250);
+    });
+
+    el.addEventListener('dblclick', (e) => {
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+      }
+      list.querySelectorAll('.rss-feed-item').forEach(item => item.classList.remove('active'));
+      list.querySelectorAll('.rss-group-header').forEach(h => h.classList.remove('active'));
       el.classList.add('active');
       _activeFeedId = null;
       _activeGroupId = el.dataset.groupId || null;
+      _groupSummary = '';
       _pageOffset = 0;
       _closeReader();
       _loadArticles();
     });
   });
+}
+
+function _promptCreateGroup(parentId) {
+  const parent = _groups.find(g => g.id === parentId);
+  const hint = parent ? ` under "${parent.name}"` : '';
+  const name = prompt(`Enter group name${hint}:`);
+  if (!name || !name.trim()) return;
+  _api('/groups', {
+    method: 'POST',
+    body: JSON.stringify({ name: name.trim(), parent_id: parentId || null }),
+  }).then(res => {
+    if (res.ok) {
+      _loadFeeds();
+    } else {
+      uiModule.showError(res.error || 'Failed to create group');
+    }
+  });
+}
+
+function _promptRenameGroup(group) {
+  const name = prompt('Rename group:', group.name);
+  if (!name || !name.trim() || name.trim() === group.name) return;
+  _api(`/groups/${group.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name: name.trim() }),
+  }).then(res => {
+    if (res.ok) {
+      _loadFeeds();
+    } else {
+      uiModule.showError(res.error || 'Failed to rename group');
+    }
+  });
+}
+
+function _updateBatchBar() {
+  const bar = _el('rss-batch-bar');
+  if (!bar) return;
+  const count = _selectedFeedIds.size;
+  if (count === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+  const groupOptions = _groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <span style="font-size:11px;opacity:0.7;flex-shrink:0">${count} selected</span>
+    <select id="rss-batch-group" style="flex:1;font-size:11px;min-width:0">
+      <option value="">Move to group…</option>
+      <option value="__none__">(no group)</option>
+      ${groupOptions}
+    </select>
+    <button id="rss-batch-move" class="secondary-btn" style="font-size:10px;padding:2px 6px">Move</button>
+    <button id="rss-batch-delete" class="secondary-btn" style="font-size:10px;padding:2px 6px;color:var(--red)">Delete</button>
+  `;
+  _el('rss-batch-move')?.addEventListener('click', _batchMoveToGroup);
+  _el('rss-batch-delete')?.addEventListener('click', _batchDelete);
+}
+
+async function _batchMoveToGroup() {
+  const sel = _el('rss-batch-group');
+  const targetGroupId = sel?.value;
+  if (!targetGroupId) return;
+  const gid = targetGroupId === '__none__' ? null : targetGroupId;
+  const ids = [..._selectedFeedIds];
+  _selectedFeedIds.clear();
+  _updateBatchBar();
+  let ok = 0;
+  for (const fid of ids) {
+    const res = await _api(`/${fid}`, {
+      method: 'PUT',
+      body: JSON.stringify({ group_id: gid }),
+    });
+    if (res.ok) ok++;
+  }
+  uiModule.showToast(`Moved ${ok}/${ids.length} feeds`);
+  _loadFeeds();
+}
+
+async function _batchDelete() {
+  const count = _selectedFeedIds.size;
+  if (!confirm(`Delete ${count} feed${count > 1 ? 's' : ''} and all their articles?`)) return;
+  const ids = [..._selectedFeedIds];
+  _selectedFeedIds.clear();
+  _updateBatchBar();
+  let ok = 0;
+  for (const fid of ids) {
+    if (_activeFeedId === fid) {
+      _activeFeedId = null;
+      _closeReader();
+    }
+    const res = await _api(`/${fid}`, { method: 'DELETE' });
+    if (res.ok) ok++;
+  }
+  uiModule.showToast(`Deleted ${ok}/${count} feeds`);
+  _loadFeeds();
+}
+
+function _renderCheckbox(feedId) {
+  if (!_selectMode) return '';
+  const checked = _selectedFeedIds.has(feedId) ? 'checked' : '';
+  return `<input type="checkbox" class="rss-feed-checkbox" ${checked} />`;
 }
 
 function _feedItemHtml(f) {
@@ -360,6 +535,7 @@ function _feedItemHtml(f) {
   }
   const initial = (f.title || '?')[0].toUpperCase();
   return `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}">
+    ${_renderCheckbox(f.id)}
     <span class="rss-feed-icon">${icon ? `<img src="${icon}" alt="" width="14" height="14" />` : initial}</span>
     <span class="rss-feed-name">${f.title || 'Untitled'}</span>
     ${(f.unread || 0) > 0 ? `<span class="rss-unread-badge">${f.unread}</span>` : ''}
@@ -367,12 +543,95 @@ function _feedItemHtml(f) {
   </div>`;
 }
 
+function _buildGroupTree() {
+  const map = {};
+  const roots = [];
+  for (const g of _groups) {
+    map[g.id] = { ...g, children: [], feeds: [] };
+  }
+  for (const g of _groups) {
+    if (g.parent_id && map[g.parent_id]) {
+      map[g.parent_id].children.push(map[g.id]);
+    } else if (!g.parent_id) {
+      roots.push(map[g.id]);
+    }
+  }
+  for (const f of _feeds) {
+    if (f.group_id && map[f.group_id]) {
+      map[f.group_id].feeds.push(f);
+    }
+  }
+  return roots;
+}
+
+function _getDescendantGroupIds(groupId) {
+  const ids = [groupId];
+  const collect = (parentId) => {
+    for (const g of _groups) {
+      if (g.parent_id === parentId && !ids.includes(g.id)) {
+        ids.push(g.id);
+        collect(g.id);
+      }
+    }
+  };
+  collect(groupId);
+  return ids;
+}
+
+function _groupUnread(groupNode) {
+  let total = 0;
+  for (const f of groupNode.feeds) total += f.unread || 0;
+  for (const c of groupNode.children) total += _groupUnread(c);
+  return total;
+}
+
+function _renderGroupTreeNode(node, depth) {
+  const isCollapsed = _groupCollapsed.has(node.id);
+  const hasChildren = node.children.length > 0;
+  const gUnread = _groupUnread(node);
+  const toggleIcon = hasChildren ? (isCollapsed ? '▶' : '▼') : '';
+  const indent = depth * 16;
+  const isActive = _activeGroupId === node.id && !_activeFeedId;
+  let html = `<div class="rss-group-header ${isActive ? 'active' : ''}" data-group-id="${node.id}" style="padding-left:${10 + indent}px">
+    ${hasChildren ? `<span class="rss-group-toggle">${toggleIcon}</span>` : '<span class="rss-group-toggle"></span>'}
+    <span class="rss-group-name">${node.name}</span>
+    ${gUnread > 0 ? `<span class="rss-unread-badge">${gUnread}</span>` : ''}
+    <span class="rss-group-actions">
+      <button class="rss-group-add-sub" title="New sub-group">+</button>
+      <button class="rss-group-rename" title="Rename group">✎</button>
+    </span>
+  </div>`;
+  if (!isCollapsed) {
+    for (const f of node.feeds) {
+      html += `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}" style="padding-left:${24 + indent}px">
+        ${_renderCheckbox(f.id)}
+        <span class="rss-feed-icon">${f.icon ? `<img src="${f.icon}" alt="" width="14" height="14" />` : (f.title || '?')[0].toUpperCase()}</span>
+        <span class="rss-feed-name">${f.title || 'Untitled'}</span>
+        ${(f.unread || 0) > 0 ? `<span class="rss-unread-badge">${f.unread}</span>` : ''}
+        <button class="rss-feed-delete" title="Delete feed">&times;</button>
+      </div>`;
+    }
+    for (const child of node.children) {
+      html += _renderGroupTreeNode(child, depth + 1);
+    }
+  }
+  return html;
+}
+
 async function _loadArticles() {
   const params = new URLSearchParams();
   params.set('limit', String(PAGE_LIMIT));
   params.set('offset', String(_pageOffset));
   if (_activeFeedId) params.set('feed_id', _activeFeedId);
-  if (_activeGroupId) params.set('group_id', _activeGroupId);
+  if (_activeGroupId) {
+    // Collect all descendant group IDs for nested groups
+    const descendantIds = _getDescendantGroupIds(_activeGroupId);
+    if (descendantIds.length > 1) {
+      params.set('group_ids', descendantIds.join(','));
+    } else {
+      params.set('group_id', _activeGroupId);
+    }
+  }
   if (_filter === 'unread') params.set('read', 'false');
   if (_filter === 'starred') params.set('starred', 'true');
   if (_searchQuery) params.set('search', _searchQuery);
@@ -391,6 +650,28 @@ function _renderArticleList() {
     return;
   }
   let html = '';
+  if (_activeGroupId && !_activeFeedId) {
+    const group = _groups.find(g => g.id === _activeGroupId);
+    html += `<div class="rss-summarize-bar">
+      <span style="font-size:10px;opacity:0.6">${group ? group.name : 'Group'}</span>
+      <span style="flex:1"></span>
+      <button class="rss-summarize-btn" id="rss-summarize-group-btn" data-group-id="${_activeGroupId}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        AI Summary
+      </button>
+    </div>`;
+    if (_groupSummary) {
+      html += `<div class="rss-summary-panel">
+        <h4>Group Summary</h4>
+        <p>${_groupSummary}</p>
+      </div>`;
+    } else if (_groupSummaryLoading) {
+      html += `<div class="rss-summary-panel">
+        <h4>Generating summary…</h4>
+        <p style="opacity:0.5">Processing articles…</p>
+      </div>`;
+    }
+  }
   for (const a of _articles) {
     const feedTitle = a.feed?.title || '';
     const feedIcon = a.feed?.icon || '';
@@ -411,6 +692,11 @@ function _renderArticleList() {
   }
   list.innerHTML = html;
 
+  const summarizeBtn = _el('rss-summarize-group-btn');
+  if (summarizeBtn) {
+    summarizeBtn.addEventListener('click', _summarizeGroup);
+  }
+
   list.querySelectorAll('.rss-article-item').forEach(el => {
     el.addEventListener('click', () => {
       list.querySelectorAll('.rss-article-item').forEach(e => e.classList.remove('active'));
@@ -419,6 +705,21 @@ function _renderArticleList() {
       _openReader(_activeArticleId);
     });
   });
+}
+
+async function _summarizeGroup() {
+  if (!_activeGroupId || _groupSummaryLoading) return;
+  _groupSummaryLoading = true;
+  _groupSummary = '';
+  _renderArticleList();
+  const res = await _api(`/groups/${_activeGroupId}/summarize`, { method: 'POST' });
+  _groupSummaryLoading = false;
+  if (res.ok && res.summary) {
+    _groupSummary = res.summary;
+  } else {
+    _groupSummary = 'Failed to generate summary.';
+  }
+  _renderArticleList();
 }
 
 function _openReader(articleId) {
@@ -616,7 +917,8 @@ function _showOpmlModal() {
       <div class="rss-modal-body">
         <button id="rss-opml-export-btn" class="primary-btn" style="margin-bottom:12px;width:100%">📥 Export OPML</button>
         <label>Import OPML</label>
-        <textarea id="rss-opml-import-text" class="memory-search-input" rows="6" placeholder="Paste OPML content here..." style="width:100%;resize:vertical;font-size:11px;font-family:monospace"></textarea>
+        <input type="file" id="rss-opml-file" accept=".opml,.xml" style="display:block;margin-bottom:8px;font-size:12px" />
+        <textarea id="rss-opml-import-text" class="memory-search-input" rows="6" placeholder="Or paste OPML content here..." style="width:100%;resize:vertical;font-size:11px;font-family:monospace"></textarea>
         <button id="rss-opml-import-btn" class="secondary-btn" style="margin-top:8px;width:100%">📤 Import OPML</button>
       </div>
     </div>
@@ -626,6 +928,17 @@ function _showOpmlModal() {
   const close = () => modal.remove();
   modal.querySelector('#rss-opml-close')?.addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+  modal.querySelector('#rss-opml-file')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const ta = document.getElementById('rss-opml-import-text');
+      if (ta) ta.value = reader.result;
+    };
+    reader.readAsText(file);
+  });
 
   modal.querySelector('#rss-opml-export-btn')?.addEventListener('click', async () => {
     const res = await fetch(`${API_BASE}/api/feeds/opml/export`, { credentials: 'same-origin' });

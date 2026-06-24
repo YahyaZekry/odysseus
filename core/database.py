@@ -1651,9 +1651,10 @@ class Integration(TimestampMixin, Base):
 class FeedGroup(TimestampMixin, Base):
     __tablename__ = "feed_groups"
 
-    id    = Column(String, primary_key=True, index=True)
-    owner = Column(String, nullable=True, index=True)
-    name  = Column(String, nullable=False)
+    id        = Column(String, primary_key=True, index=True)
+    owner     = Column(String, nullable=True, index=True)
+    name      = Column(String, nullable=False)
+    parent_id = Column(String, nullable=True, index=True)
 
 
 class Feed(TimestampMixin, Base):
@@ -1827,7 +1828,32 @@ def init_db():
     _migrate_encrypt_email_passwords()
     _migrate_encrypt_signatures()
     _migrate_encrypt_endpoint_keys()
+    _migrate_add_feed_group_parent_id()
     _migrate_backfill_task_folders()
+
+
+def _migrate_add_feed_group_parent_id():
+    """Add parent_id column to feed_groups table for nested groups."""
+    import sqlite3
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    if not os.path.exists(db_path):
+        return
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute("PRAGMA table_info(feed_groups)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if columns and "parent_id" not in columns:
+            conn.execute("ALTER TABLE feed_groups ADD COLUMN parent_id TEXT")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_feed_groups_parent_id ON feed_groups(parent_id)")
+        conn.commit()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"feed_groups parent_id migration failed: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def _migrate_backfill_task_folders():
