@@ -713,7 +713,7 @@ def bing_search(query: str, count: int = 10, time_filter: Optional[str] = None) 
             params=params,
             headers={
                 "Ocp-Apim-Subscription-Key": api_key,
-                "User-Agent": "Mozilla/5.0",
+                "User-Agent": WEB_FETCH_USER_AGENT,
             },
             timeout=REQUEST_TIMEOUT,
         )
