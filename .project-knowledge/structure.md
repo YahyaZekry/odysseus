@@ -1,6 +1,16 @@
 # Project Structure
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
+
+## Structural Changes Since 2026-06-25 (upstream merge)
+
+Several former monoliths were split into domain packages upstream. Old entry points are kept as thin backward-compat shims (10-20 lines, re-exporting from the new location) so existing imports still work — check the shim first, then follow the re-export.
+
+- **`src/tool_implementations.py`** (was ~205KB) → now a ~5KB facade. Real implementations moved to **`src/tools/`** (domain modules: `system.py`, `cookbook.py`, `calendar.py`, `contacts.py`, `image.py`, `notes.py`, `research.py`, `search.py`, `vault.py`, `_common.py`).
+- **Admin `manage_*` agent tools** (endpoints/mcp/webhooks/tokens/settings) moved to **`src/agent_tools/`** package: `admin_tools.py`, `bg_job_tools.py`, `document_tools.py`, `filesystem_tools.py`, `interaction_tools.py`, `model_interaction_tools.py`, `session_tools.py`, `subprocess_tools.py`, `web_tools.py`.
+- **`src/model_capability_readers/`** (new) — per-provider model capability schema readers: `base.py`, `generic_openai.py`, `google.py`, `google_ai_studio_mapping.py`, `llamacpp.py`, `lmstudio.py`, `ollama.py`, `openai.py`, `openrouter.py`.
+- **`src/search/`** (new) — `core.py`, `providers.py`, `query.py`, `ranking.py`, `cache.py`, `analytics.py`. Relationship to the existing `services/search/` (our 10-provider registry, in active use) is unconfirmed — see [[roadmap]].
+- **Route domains split into subpackages**, each with a thin shim at the old path: `routes/contacts_routes.py` → `routes/contacts/contacts_routes.py`, `routes/gallery_routes.py` → `routes/gallery/gallery_routes.py`, `routes/history_routes.py` → `routes/history/history_routes.py`, `routes/memory_routes.py` → `routes/memory/memory_routes.py`, `routes/research_routes.py` → `routes/research/research_routes.py`.
 
 ## File Tree
 
@@ -234,7 +244,8 @@
 | `core/auth.py` | AuthManager: user CRUD, password hashing (bcrypt), session tokens, 2FA (TOTP), privileges |
 | `src/llm_core.py` | LLM API client: OpenAI-compatible provider abstraction, streaming, tool calling |
 | `src/agent_loop.py` | Main agent loop: tool selection, execution, continuation |
-| `src/tool_implementations.py` | All agent tool implementations (205KB) |
+| `src/tools/` | Agent tool implementations by domain (was `src/tool_implementations.py`, now a facade — see Structural Changes above) |
+| `src/agent_tools/` | Admin/session/subprocess/document/web/filesystem agent tools by domain |
 | `src/task_scheduler.py` | Cron-style scheduled task engine (110KB) |
 | `src/builtin_actions.py` | Built-in agent actions (107KB) |
 | `src/ai_interaction.py` | Debates, pipelines, self-managing AI (76KB) |

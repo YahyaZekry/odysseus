@@ -1,8 +1,10 @@
 # Routes & Server Actions
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
 > 150+ endpoints across 55+ route files. Prefix `/api/auth` on all auth routes, `/api` on others.
 > Check here before adding a new route — avoid duplicates.
+>
+> **Domain subpackage pattern** (added upstream, merged 2026-07-19): `contacts`, `gallery`, `history`, `memory`, and `research` routes now live under `routes/<domain>/<domain>_routes.py` instead of a flat `routes/<domain>_routes.py`. The old flat path still exists as a thin re-export shim — new domains should probably follow the subpackage pattern. See [[structure]].
 
 | Route | Auth Required | What It Does |
 |-------|---------------|-------------|

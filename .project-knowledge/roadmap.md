@@ -1,11 +1,11 @@
 # Roadmap
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
 > Forward-looking only. Check this before starting any task — know what's in flight.
 
 ## Current Goal
 
-Sync local `dev` (12 commits ahead: RSS reader, deep research fixes, avatar, themes, Kimi, search registry) with upstream `dev` (~301 commits ahead as of 2026-07-19) — see [[sessions]] for merge log.
+`dev` is now in sync with upstream (merged 2026-07-19, see [[sessions]] and [[history]]). No standing merge work — next up is picking from the backlog below, or whatever the user directs.
 
 ---
 
@@ -46,6 +46,11 @@ Sync local `dev` (12 commits ahead: RSS reader, deep research fixes, avatar, the
 
 ---
 
+**Post-merge structural changes to be aware of** *(discovered 2026-07-19, see [[history]])*
+- [ ] **Two parallel search modules exist** — `services/search/` (our 10-provider registry, actively used by deep research and chat) and a new upstream `src/search/` package (`core.py`, `providers.py`, `query.py`, `ranking.py`, `cache.py`, `analytics.py`) appeared in the merge. Not yet confirmed whether `src/search/` is wired up anywhere or dead/in-progress upstream code. Needs a quick `grep -r "from src.search\|import src.search"` audit before touching search code.
+
+---
+
 ## Active TODOs
 
-- [ ] Merge ~301 upstream commits into local `dev` — see [[sessions]] for the plan (project-knowledge sync first, commit local changes, then merge). *(started 2026-07-19)*
+- [ ] Verify whether `src/search/` (new in the 2026-07-19 merge) is actually used anywhere, or if it's upstream work-in-progress that duplicates `services/search/`. *(added 2026-07-19)*
