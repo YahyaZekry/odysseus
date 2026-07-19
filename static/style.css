@@ -1943,22 +1943,23 @@ body.bg-pattern-sparkles {
     }
     #welcome-screen .welcome-sub {
       font-size:0.85rem;
-      color:color-mix(in srgb, var(--fg) 60%, transparent);
-      opacity:0.6;
+      color:color-mix(in srgb, var(--fg) 65%, transparent);
+      text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg);
       line-height:1.5;
       max-width:300px;
     }
     #welcome-screen .welcome-version {
       font-size:0.7rem;
-      opacity:0.25;
+      color:color-mix(in srgb, var(--fg) 45%, transparent);
+      text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg);
       margin-top:12px;
       pointer-events:none;
       user-select:none;
     }
     #welcome-screen .welcome-tip {
       font-size:0.75rem;
-      color:var(--fg);
-      opacity:0.2;
+      color:color-mix(in srgb, var(--fg) 55%, transparent);
+      text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg);
       margin-top:24px;
       max-width:320px;
       line-height:1.4;

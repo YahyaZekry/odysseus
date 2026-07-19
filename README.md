@@ -40,15 +40,15 @@ Native installs, GPU notes, Windows/macOS instructions, HTTPS, and configuration
 
 ## Features
 
-- **Chat + Agents** — local/API models, tools, MCP, files, shell, skills, and memory.
-- **Cookbook** — hardware-aware model recommendations, downloads, and serving.
+- **Chat + Agents** — 19+ providers out of the box (Anthropic, OpenAI, DeepSeek, Kimi/Moonshot, OpenRouter, Ollama Cloud, Groq, Mistral, Together AI, Fireworks, Gemini, xAI Grok, Z.AI, NVIDIA, OpenCode Zen/Go, and more), plus subscription bridges for GitHub Copilot and ChatGPT. Tool-using agent with MCP, files, shell, skills, and memory.
+- **Cookbook** — hardware-aware model recommendations, downloads, and vLLM/llama.cpp serving, with llama.cpp auto-detection.
 - **Deep Research** — multi-step web research with source reading, category-aware formatting, and report generation.
 - **RSS Feed Reader** — 3-pane feed reader with nested groups, AI summaries, full-content extraction, OPML import/export, and YouTube channel support.
 - **Compare** — blind side-by-side model testing and synthesis.
 - **Documents** — writing-first editor with AI edits, suggestions, Markdown, HTML, CSV, and syntax highlighting.
 - **Email** — IMAP/SMTP inbox with triage, tags, summaries, reminders, and reply drafts.
 - **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
-- **Extras** — gallery/image editor, 6 canvas background animations, neon glow theme toggle, user avatars, 10 pluggable web search providers (SearXNG, Brave, Bing, Tavily, Serper, Exa, Firecrawl, and more), presets, sessions, and 2FA.
+- **Extras** — gallery/image editor, 13 canvas background animations (aurora, matrix rain, nebula, hex grid, and more), neon glow theme toggle, user avatars, 10 pluggable web search providers (SearXNG, Brave, Bing, Tavily, Serper, Exa, Firecrawl, and more), presets, sessions, and 2FA.
 
 ## Demo
 
