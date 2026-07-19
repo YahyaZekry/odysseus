@@ -1,6 +1,6 @@
 # Stack
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
 
 ## Tech Stack
 
@@ -39,6 +39,18 @@
 | `./install-service.sh` | Install systemd service |
 | `pip install -r requirements.txt` | Install Python dependencies |
 | `pip install -r requirements-optional.txt` | Install optional dependencies |
+| `uv pip compile requirements.txt -o requirements.lock && uv pip sync requirements.lock` | Optional: pin a reproducible, platform-specific lockfile (gitignored) — `requirements.txt` is intentionally unpinned |
+| `./venv/bin/python -m pytest` | Run tests using the project venv (system `python3`/`pytest` is missing pinned deps like `nh3`) |
+| `./venv/bin/python tests/run_focus.py --area <area> [--sub-area X] [--fast] [--last-failed]` | Focused test runner (areas: security/routes/services/cli/js/helpers/unit/uncategorized, auto-tagged by `tests/_taxonomy.py`) |
+| `./venv/bin/python tests/run_order_report.py` | Report-only test order-sensitivity diagnostic (seeded shuffle, not a CI gate) |
+
+**Platform notes:**
+- **Windows**: `launch-windows.ps1` binds `127.0.0.1` by default and does **not** read `APP_BIND`/`ODYSSEUS_HOST` from `.env` — pass `-BindHost 0.0.0.0` explicitly for LAN access. Cookbook/shell tool needs Git for Windows (`bash.exe`); vLLM/SGLang require Linux/WSL2; Ollama is the easiest local-model path.
+- **macOS**: `start-macos.sh` / `build-macos-app.sh` serve on port **7860**, not 7000 (AirPlay conflicts with 7000/5000 on macOS). Docker Desktop can't reach Metal GPU, so Cookbook is CPU-only when run in Docker on Apple Silicon — run natively for GPU serving.
+- **GPU overlays**: `COMPOSE_FILE=docker-compose.yml:docker/gpu.nvidia.yml` (or `gpu.amd.yml`); helper diagnostics `scripts/check-docker-gpu.sh` / `check-docker-amd-gpu.sh`. Standalone `docker-compose.gpu-nvidia.yml` / `gpu-amd.yml` exist for stack UIs (Portainer/Coolify) that don't honor `COMPOSE_FILE`. `docker/host-docker.yml` (raw Docker-socket access) is high-trust and opt-in only — never mounted by default.
+- **Known gotchas**: `.env` saved with a UTF-8 BOM on Windows can break `AUTH_ENABLED` (app tolerates it via `utf-8-sig`, but re-save without BOM if auth behaves oddly); clipboard API is blocked over plain-HTTP LAN/Tailscale URLs (needs HTTPS or localhost); ntfy needs `NTFY_BIND`/`NTFY_BASE_URL` set to reach phones; a co-installed `chromadb-client` package silently forces HTTP-only fallback and breaks the full `chromadb` package — fix via forced reinstall of `chromadb`.
+- **Optional deps** (`requirements-optional.txt`, not installed by default): `faster-whisper` (local STT), `ddgs` (DuckDuckGo search provider), `PyMuPDF` (PDF render/forms — **AGPL-3.0**, license-relevant), `markitdown` (Office/EPUB→Markdown).
+- Built-in MCP servers (e.g. `@playwright/mcp`) only auto-start if already npx-cached — skipped with a log message otherwise, so a fresh install never blocks on an npx download.
 
 ---
 
@@ -80,7 +92,13 @@
 | `ODYSSEUS_INPROCESS_POLLERS` | email pollers | Enable in-process email polling |
 | `ODYSSEUS_INPROCESS_TASKS` | `app.py` | Enable in-process task scheduler |
 | `ODYSSEUS_SCRIPT_HOST` | task scheduler | SSH host for remote script execution |
-| `ODYSSEUS_CHAT_UPLOAD_MAX_BYTES` | upload limits | Chat attachment size cap |
+| `ODYSSEUS_CHAT_UPLOAD_MAX_BYTES` | upload limits | Chat attachment size cap (default 10MB) — all `*_UPLOAD_MAX_BYTES` vars validate as positive integers and fail-fast at startup if malformed |
+| `ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES` / `ODYSSEUS_GALLERY_TRANSFORM_MAX_BYTES` | upload limits | Gallery upload cap (100MB) / gallery transform cap (25MB) |
+| `ODYSSEUS_MEMORY_IMPORT_MAX_BYTES` | upload limits | Memory import cap (10MB) |
+| `ODYSSEUS_PERSONAL_DOC_MAX_BYTES` | upload limits | Personal doc upload cap (25MB) |
+| `ODYSSEUS_EMAIL_COMPOSE_MAX_BYTES` | upload limits | Email compose attachment cap (25MB) |
+| `ODYSSEUS_STT_AUDIO_MAX_BYTES` | upload limits | STT audio upload cap (25MB) |
+| `ODYSSEUS_ICS_MAX_BYTES` | upload limits | ICS calendar import cap (10MB) |
 | `ODYSSEUS_MAIL_ATTACHMENTS_DIR` | `src/constants.py` | Mail attachments directory |
 | `REQUEST_HARD_TIMEOUT` | `app.py` | Request timeout in seconds |
 | `COMPOSE_FILE` | Docker | GPU Compose overlay selection |

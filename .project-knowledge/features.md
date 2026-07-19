@@ -1,6 +1,6 @@
 # Features & Workflows
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
 
 ## Features
 
@@ -38,6 +38,14 @@
 - **Admin: Share Defaults Toggle** — admins can choose whether their default model/endpoint is shared with all users. *(added: upstream, 2026-06-25)*
 - **Chat Padding Toggle** — UI setting to toggle padding around the chat area. *(added: upstream, 2026-06-25)*
 - **Gemma 4 12B/QAT Cookbook Entries** — Gemma 4 12B and QAT variants added to hardware fit catalog, RTX 3050 bandwidth data added. *(added: upstream, 2026-06-25)*
+- **Backup & Restore** — `scripts/odysseus-backup` CLI: snapshot/list/verify/restore `data/` safely while the app is running. Secrets are included in the tarball (it's a full data backup, not sanitized); restore requires explicit confirmation since it replaces `data/`. See [[history]]. *(docs: `docs/backup-restore.md`)*
+- **Agent Migration (spec/tooling, not yet wired into the UI)** — scriptable, source-neutral manifest builder (`scripts/agent_migration_manifest.py`) for importing another AI agent's memories/skills/conversations/archives into Odysseus, including recognizing ChatGPT `conversations.json` exports. See [[integrations]]. *(docs: `docs/agent-migration.md`)*
+
+## Maintainer / Contributor Tooling
+
+> Not user-facing features — internal scripts for repo maintainers.
+
+- **PR Blocker Audit** (`scripts/pr_blocker_audit.py`) — offline/live PR-overlap and duplicate-detection triage tool over `gh pr list`/`gh api`, with terminal/Markdown/JSON output. Single-file script by design, pending settled tooling conventions. *(docs: `docs/pr-blocker-audit.md`)*
 
 ---
 

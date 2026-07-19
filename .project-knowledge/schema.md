@@ -1,6 +1,6 @@
 # Schema
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
 > SQLite via SQLAlchemy ORM. Tables defined in `core/database.py`. Source of truth is that file — this is a navigable summary.
 
 ## Tables
@@ -39,5 +39,14 @@
 - Most tables are owner-scoped: queries filter by `owner == current_user` or `owner IS NULL`
 - Admin routes require `require_admin` decorator (checks user is admin in auth.json)
 - Sessions scoped per-owner; legacy null-owner sessions are shared
-- API tokens are scoped (e.g. `chat`, `email:read`, `todos:write`)
+- API tokens are scoped (e.g. `chat`, `email:read`, `todos:write` — coarse-grained, see [[roadmap]] known gap: only `chat`/`admin` scope tiers exist, no per-capability grant)
 - `internal-tool` loopback bypasses owner checks for agent-internal calls
+
+## Attachment Reference Contract
+
+> Source: `docs/attachments.md`. No distinct "artifact" table exists — artifact-like refs are covered by the same attachment-ID reference scan across chat/document/gallery/notes/calendar; any future artifact store must be added to that scan before cleanup.
+
+- Shape: `{"type":"attachment_ref","attachment_id":"<hex>.<ext>","name","mime","size","checksum_sha256","created_at"}`, optionally `width`/`height`/`vision`/`vision_model`/`gallery_id`.
+- Persisted in `chat_messages.content` as text + reference lines (**never** raw `data:` URLs) and in `chat_messages.metadata.attachments`. FTS migration/triggers scrub legacy base64-indexed rows.
+- Upload lifecycle backed by `uploads.json` (owner, checksum, mime, size, created_at) — not a DB table. Cleanup fails closed if the attachment-reference scan can't complete. Deletions atomically drop the `uploads.json` row first, restoring it if filesystem removal fails. Writers must take an owner-checked reservation that serializes with deletion; cleanup and write-reservation share the upload-index lock. **Documented single-worker-only correctness** — multi-process deployment needs a real lock or DB-backed lifecycle state (not yet built).
+- `data/.app_key` — the Fernet encryption key referenced across backup docs alongside `app.db`, vault, memory, RAG indexes, personal docs, and uploads as the core `data/` state to back up.

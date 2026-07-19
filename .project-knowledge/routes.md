@@ -5,6 +5,26 @@
 > Check here before adding a new route — avoid duplicates.
 >
 > **Domain subpackage pattern** (added upstream, merged 2026-07-19): `contacts`, `gallery`, `history`, `memory`, and `research` routes now live under `routes/<domain>/<domain>_routes.py` instead of a flat `routes/<domain>_routes.py`. The old flat path still exists as a thin re-export shim — new domains should probably follow the subpackage pattern. See [[structure]].
+>
+> **Route domain map**: `specs/architecture-runtime-inventory.md` groups the 54 route files into Email, Chat/Agent, Cookbook, Model/LLM, Calendar/Contacts, Documents, Auth, Tasks, Session, Gallery, Memory, Research, MCP, Notes, and an "Other" bucket, with per-domain line counts and complexity ratings — check it before deciding which domain a new route belongs to.
+
+## Companion Bridge API
+
+> Source: `companion/README.md`. Additive LAN-discovery/pairing layer for the mobile companion app — no LLM logic duplication.
+
+| Route | Auth | What It Does |
+|-------|------|-------------|
+| `GET /api/companion/ping` | Session/token | Health check |
+| `GET /api/companion/info` | Session/token | Server identity/capabilities |
+| `GET /api/companion/models` | Session/token | Caller's own model endpoints only (owner-filtered), never returns API keys |
+| `GET /api/companion/pair` | Admin cookie | Renders the pairing form — never mints a token itself |
+| `POST /api/companion/pair` (+ `?format=json`) | Admin cookie | Mints a one-time pairing token |
+
+CSRF posture: minting is POST-only because the `SameSite=Lax` session cookie won't ride a cross-site POST; minting also invalidates the auth middleware's token cache. Source of truth: `token_owner`, `owner_can_see`, `mint_pairing_token`, `pairing.*` — tested in `tests/test_companion_readonly.py` and `tests/test_companion_pairing.py`.
+
+## Claude / Codex Agent Bridge
+
+Canonically `/api/codex/*` (shared by **all** agent integrations — "codex" naming is historic), plus `/api/claude/plugin.zip` and `/api/codex/plugin.zip` for bundle downloads. Tokens are scope-gated server-side per tool surface — a call outside the granted scope 403s until the matching Settings > Integrations toggle is enabled. Setup flow: Settings > Integrations > Add Agent > copy generated token + setup commands > toggle allowed tools > download the zip bundle and extract to `~/.claude/skills/` (Claude) or register via `~/.agents/plugins/marketplace.json` + `codex plugin add odysseus@personal` (Codex). Both explicitly forbid SSH/Docker/direct-DB/MCP-internals access — everything must go through `/api/codex/*`. See [[integrations]].
 
 | Route | Auth Required | What It Does |
 |-------|---------------|-------------|

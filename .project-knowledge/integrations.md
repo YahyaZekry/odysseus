@@ -1,7 +1,18 @@
 # External Integrations & Data Contracts
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-06-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
 > Document exact field contracts — never guess the shape.
+
+**Microsoft Outlook / Office 365 (email)**
+- Odysseus email is IMAP/SMTP **username-password only**. Microsoft disables basic auth for most modern tenants, causing `AUTHENTICATE failed` / `535 5.7.139` errors.
+- **No OAuth/Graph Mail support yet** — documented known limitation, planned future direction, not built. Source: `docs/email-outlook.md`.
+
+**Agent Migration Manifest** (`agent-migration.v1`, `scripts/agent_migration_manifest.py`)
+- Read-only, JSON-only, source-neutral pipeline: `source export → adapter → manifest → preview → apply`. This is a **spec/tooling layer, not yet a wired-in importer feature** — no UI hookup.
+- Item kinds: `memory`, `skill` (SKILL.md + frontmatter), `conversation_thread`, `archive_document`. Content embedding is opt-in per kind (`--include-archive-content`, `--include-conversation-content --max-conversation-messages`) to avoid bloating/leaking manifests by default.
+- Recognizes ChatGPT `conversations.json` `mapping`-format exports.
+- Recommended future-importer apply order: dry-run summary → backup `data/` → import archive docs as documents (not memory) → import conversation threads as searchable/cited archive context (not memory) → show memory candidates for review → import skills after conflict check → skip secrets by default.
+- Source: `docs/agent-migration.md`.
 
 **SearXNG (self-hosted search engine)**
 - Writes to: none (read-only)

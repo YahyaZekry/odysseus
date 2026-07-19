@@ -3,7 +3,7 @@
 > Last updated: 2026-07-19
 > Status: Active
 > Stack: FastAPI (Python 3.11+) + SQLite/SQLAlchemy + Vanilla JS SPA + ChromaDB
-> Current goal: `dev` is in sync with upstream (merged 2026-07-19) — see [[roadmap]] and [[sessions]]. Follow-up: confirm whether the new `src/search/` package (from the merge) is actually used.
+> Current goal: `dev` is in sync with upstream (merged 2026-07-19) — see [[roadmap]] and [[sessions]]. `.project-knowledge/` was also backfilled from the repo's scattered docs (SECURITY.md, THREAT_MODEL.md, ROADMAP.md, specs/, tests/*.md, etc.) — see [[roadmap]] for the consolidated backlog and [[systems]] for the threat-model/CI details.
 
 ## What This Project Does
 A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that runs on local hardware. Provides chat with any OpenAI-compatible LLM, an agent with tools (files, shell, web, MCP, memory, skills), deep research, email/calendar/contacts sync, notes/tasks, document editing, image generation, model management ("Cookbook"), RSS feed reader, and more. Privacy-first, local-first.

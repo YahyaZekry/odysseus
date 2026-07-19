@@ -46,11 +46,36 @@
 
 ---
 
-**Post-merge structural changes to be aware of** *(discovered 2026-07-19, see [[history]])*
-- [ ] **Two parallel search modules exist** — `services/search/` (our 10-provider registry, actively used by deep research and chat) and a new upstream `src/search/` package (`core.py`, `providers.py`, `query.py`, `ranking.py`, `cache.py`, `analytics.py`) appeared in the merge. Not yet confirmed whether `src/search/` is wired up anywhere or dead/in-progress upstream code. Needs a quick `grep -r "from src.search\|import src.search"` audit before touching search code.
+**Security (`THREAT_MODEL.md` "Known Gaps", cross-referenced to real issues)** *(added 2026-07-19)*
+- [ ] **No shell/filesystem sandbox** for the agent's `bash`/`read`/`write` tools — see #1058 sandbox proposal.
+- [ ] **SSRF via `base_url` param on `/api/v1/chat`** for chat-scoped tokens — fix proposed in PR #1039, merge status unconfirmed.
+- [ ] **`src/search/` vs `services/search/` — partially answered.** THREAT_MODEL.md confirms `core.py`/`providers.py` under `src/search/` alias `services/search` via `sys.modules` (not dead code), **but** `analytics.py`/`cache.py`/`content.py`/`query.py`/`ranking.py` are still independent copies that can drift from the real `services/search/` implementation. Tracked as #1058. (This replaces the earlier "fully unconfirmed" note — the aliasing is real, the drift risk on the 5 non-aliased files is the remaining gap.)
+- [ ] **Coarse token scopes** — only `chat`/`admin` scope tiers exist, no per-capability grant. See [[schema]] access rules.
+
+**Refactor plan** (`specs/architecture-runtime-inventory.md`, 2026-06-16 snapshot for #4082/#4071 — priorities 1–2 already executed, see [[structure]]) *(added 2026-07-19)*
+- [ ] Priority 3: split `src/agent_loop.py` (2,961 lines) → `src/agent/loop.py` + submodules (#3266)
+- [ ] Priority 4: layer `src/` into `pkg/domain/infra/api` — after routes/tools are stable
+- [ ] Priority 6: split `core/database.py` (2,265 lines, 28 classes, 102 importers) — **explicitly planned last**, highest blast radius
+- [ ] Priority 7/8: modularize `static/style.css` (36,653 lines, #2617) and `static/js/document.js` (9,776 lines) — not yet started
+- [ ] Fix the documented cross-layer smell: 8 function-body imports inside `src/tool_implementations.py` reach into `routes/*.py`
+- [ ] Open questions (unresolved): is #2538 the canonical behavior-map baseline; should compat shims (`__init__.py` re-exports from the 2026-07-19 split) be temporary or permanent; should an ADR track these refactor decisions
+
+**Test suite refactor** (issue #2523, in progress — see [[systems]] for what's already built) *(added 2026-07-19)*
+- [ ] Move CLI tests (28 files, listed in `tests/LAYOUT_INVENTORY.md`, issue #3712) into `tests/cli/` — not yet executed
+- [ ] Split oversized test files (issue #3983, `tests/OVERSIZED_TEST_SPLIT_PLAN.md`): `test_model_routes.py` (1,778 lines / 139 tests) and `test_security_regressions.py` (1,224 / 92) are top candidates but deferred as high-risk; safer first targets are `test_provider_classification.py`, `test_provider_endpoints.py`, `test_llm_core_temperature.py`
+- [ ] CI-hardening track: pytest-randomly → fix order-dependent tests → coverage reporting → make it a blocking gate → pytest-xdist — none of these stages are done yet
+
+**ROADMAP.md backlog not yet listed above** *(added 2026-07-19)*
+- [ ] Cookbook: hardware-tiered model presets for Deep Research; rank cookbook models by hardware fit; improve error feedback/logging UX; SGLang cross-platform support
+- [ ] Better AI-assisted Notes/Todos integration
+- [ ] Modal/window positioning fragility; mobile `@media` override discoverability
+- [ ] More endpoint/provider-probing tests (Anthropic, Gemini, Groq, xAI, OpenRouter, OpenAI, DeepSeek)
+- [ ] Better scheduler defaults/visibility
+- [ ] Admin-tool security hardening docs
+- **Explicit non-goal right now**: no more themes (per ROADMAP.md — don't propose new theme work unprompted)
 
 ---
 
 ## Active TODOs
 
-- [ ] Verify whether `src/search/` (new in the 2026-07-19 merge) is actually used anywhere, or if it's upstream work-in-progress that duplicates `services/search/`. *(added 2026-07-19)*
+- [ ] Confirm `pip-audit`/Trivy findings aren't silently ignored — both are advisory-only in CI (see [[systems]] Security CI), so nothing blocks on them today. *(added 2026-07-19)*

@@ -1,6 +1,6 @@
 # Project Structure
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19 (read [[roadmap]] for the full refactor-slice plan and its open questions)
 
 ## Structural Changes Since 2026-06-25 (upstream merge)
 
@@ -11,6 +11,8 @@ Several former monoliths were split into domain packages upstream. Old entry poi
 - **`src/model_capability_readers/`** (new) — per-provider model capability schema readers: `base.py`, `generic_openai.py`, `google.py`, `google_ai_studio_mapping.py`, `llamacpp.py`, `lmstudio.py`, `ollama.py`, `openai.py`, `openrouter.py`.
 - **`src/search/`** (new) — `core.py`, `providers.py`, `query.py`, `ranking.py`, `cache.py`, `analytics.py`. Relationship to the existing `services/search/` (our 10-provider registry, in active use) is unconfirmed — see [[roadmap]].
 - **Route domains split into subpackages**, each with a thin shim at the old path: `routes/contacts_routes.py` → `routes/contacts/contacts_routes.py`, `routes/gallery_routes.py` → `routes/gallery/gallery_routes.py`, `routes/history_routes.py` → `routes/history/history_routes.py`, `routes/memory_routes.py` → `routes/memory/memory_routes.py`, `routes/research_routes.py` → `routes/research/research_routes.py`.
+- **`specs/architecture-runtime-inventory.md`** (2026-06-16 snapshot, Phase 0 draft for #4082/#4071) is the source refactor plan behind the above splits. At that snapshot: `src/` had 95 flat files, `routes/` 54, `core/` 10. Largest files then: `src/tool_implementations.py` (4,032 lines — since split), `routes/email_routes.py` (3,245), `routes/cookbook_routes.py` (2,969), `src/agent_loop.py` (2,961, **not yet split** — planned target `src/agent/loop.py` + submodules, #3266), `core/database.py` (2,265 lines, 28 classes, 102 importers — explicitly planned as the **last** thing to split, highest blast radius). Frontend size snapshot: `static/style.css` 36,653 lines, `static/js/document.js` 9,776, `slashCommands.js` 6,498, `settings.js` 5,266, `emailLibrary.js` 5,217, `notes.js` 5,124, `chat.js` 4,985, `app.js` 4,090 — none split yet (frontend CSS/JS modularization is priority 7/8 in the plan, tracked as #2617 for CSS). A documented code smell: 8 function-body (not top-level) imports inside `src/tool_implementations.py` reach into `routes/*.py` — a cross-layer violation not yet fixed.
+- **`static/js/MODULE_SUMMARY.md`** documents the ~90-module ES6 frontend by subsystem (core/ui, chat pipeline, model/config, session/sidebar, memory/RAG, document/editor, research UI, gallery/email/calendar/tasks/notes, cookbook, compare mode, utilities), plus the SSE event-dispatch table: `delta`, `tool_start`, `tool_progress`, `tool_output`, `agent_step`, `doc_stream_open`/`doc_stream_delta`, `research_progress`/`research_sources`/`research_done`, `web_sources`, `model_info`, `fallback`, `metrics`, `message_saved`, `budget_exceeded`, `rounds_exhausted`, `teacher_takeover`, `skill_saved`. Check this file before adding a new frontend module or SSE event type.
 
 ## File Tree
 
