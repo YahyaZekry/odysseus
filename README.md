@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  A self-hosted AI workspace for chat, agents, research, documents, email, notes, calendar, and local model workflows.
+  A self-hosted AI workspace for chat, agents, research, documents, email, notes, calendar, RSS feeds, and local model workflows.
 </p>
 
 <p align="center">
@@ -42,12 +42,13 @@ Native installs, GPU notes, Windows/macOS instructions, HTTPS, and configuration
 
 - **Chat + Agents** — local/API models, tools, MCP, files, shell, skills, and memory.
 - **Cookbook** — hardware-aware model recommendations, downloads, and serving.
-- **Deep Research** — multi-step web research with source reading and report generation.
+- **Deep Research** — multi-step web research with source reading, category-aware formatting, and report generation.
+- **RSS Feed Reader** — 3-pane feed reader with nested groups, AI summaries, full-content extraction, OPML import/export, and YouTube channel support.
 - **Compare** — blind side-by-side model testing and synthesis.
 - **Documents** — writing-first editor with AI edits, suggestions, Markdown, HTML, CSV, and syntax highlighting.
 - **Email** — IMAP/SMTP inbox with triage, tags, summaries, reminders, and reply drafts.
 - **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
-- **Extras** — gallery/image editor, themes, uploads, web search, presets, sessions, and 2FA.
+- **Extras** — gallery/image editor, 6 canvas background animations, neon glow theme toggle, user avatars, 10 pluggable web search providers (SearXNG, Brave, Bing, Tavily, Serper, Exa, Firecrawl, and more), presets, sessions, and 2FA.
 
 ## Demo
 
