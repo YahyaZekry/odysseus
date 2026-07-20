@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -18,6 +19,25 @@ def _utcnow():
 def _get_owner(request: Request) -> Optional[str]:
     from src.auth_helpers import get_current_user
     return get_current_user(request)
+
+
+def _youtube_transcript_text(url: Optional[str], max_retries: int = 3) -> Optional[str]:
+    """Fetch a YouTube video's transcript as plain text, or None if the URL
+    isn't a YouTube video or no transcript is available. feedparser leaves
+    `content`/`summary` empty for YouTube RSS entries, so this is the only
+    source of real text to feed the AI summary for a video article."""
+    if not url:
+        return None
+    from services.youtube.youtube_handler import is_youtube_url, extract_youtube_id, extract_transcript_async
+    if not is_youtube_url(url):
+        return None
+    video_id = extract_youtube_id(url)
+    if not video_id:
+        return None
+    result = asyncio.run(extract_transcript_async(url, video_id, max_retries=max_retries))
+    if result.get("success"):
+        return result.get("transcript") or None
+    return None
 
 
 def setup_feed_routes():
@@ -124,6 +144,30 @@ def setup_feed_routes():
                 articles = db.query(Article).filter(
                     Article.feed_id.in_(feed_ids),
                 ).order_by(Article.published_at.desc().nullslast()).limit(8).all()
+            # Fetch transcripts for any YouTube entries with empty content
+            # (feedparser never populates content/summary for video entries).
+            # Concurrent + a single retry keeps this bounded for a group of
+            # several videos, given the 45s REQUEST_HARD_TIMEOUT.
+            empty_youtube = [a for a in articles if not (a.content or "").strip() and a.url]
+            if empty_youtube:
+                from services.youtube.youtube_handler import is_youtube_url, extract_youtube_id, extract_transcript_async
+
+                async def _fetch_all():
+                    async def _one(a):
+                        if not is_youtube_url(a.url):
+                            return a, None
+                        video_id = extract_youtube_id(a.url)
+                        if not video_id:
+                            return a, None
+                        result = await extract_transcript_async(a.url, video_id, max_retries=1)
+                        return a, (result.get("transcript") if result.get("success") else None)
+                    return await asyncio.gather(*[_one(a) for a in empty_youtube])
+
+                for a, transcript in asyncio.run(_fetch_all()):
+                    if transcript:
+                        a.content = transcript
+                db.commit()
+
             text_parts = []
             for a in articles:
                 title = a.title or "Untitled"
@@ -137,7 +181,24 @@ def setup_feed_routes():
                 f"Summarize the following {len(articles)} articles as a concise bullet-point digest. "
                 f"Group related articles under common themes. Keep each bullet to 1-2 sentences.\n\n{combined[:6000]}"
             )
-            summary = query_llm(prompt, system_prompt="You are a helpful assistant that writes concise multi-article digests.", max_tokens=600)
+            # /api/feeds/groups is exempt from REQUEST_HARD_TIMEOUT (see
+            # app.py) for the same reason /api/feeds/articles is — slow
+            # models can legitimately take longer than 45s. Match the same
+            # 180s ceiling used for the single-article summarizer.
+            summary = query_llm(
+                prompt,
+                # See the single-article summarizer for why this instruction
+                # is needed: reasoning-style models not covered by
+                # _THINKING_MODEL_PATTERNS emit their chain-of-thought as
+                # plain prose with no separable field/tag to strip.
+                system_prompt=(
+                    "You are a helpful assistant that writes concise multi-article digests. "
+                    "Respond with only the final digest — no reasoning, analysis, or "
+                    "commentary about the task itself."
+                ),
+                max_tokens=1200,
+                timeout=180,
+            )
             return {"ok": True, "summary": summary}
         except Exception as e:
             logger.warning("Group summarize failed: %s", e)
@@ -470,11 +531,43 @@ def setup_feed_routes():
                 return {"ok": True, "summary": row.summary}
             text = row.content or ""
             if not text.strip():
+                transcript = _youtube_transcript_text(row.url)
+                if transcript:
+                    text = transcript
+                    row.content = text
+                    db.commit()
+            if not text.strip():
                 return {"ok": False, "error": "No content to summarize"}
             try:
                 from src.llm_core import query_llm
-                prompt = f"Summarize the following article in 2-3 paragraphs:\n\n{text[:8000]}"
-                summary = query_llm(prompt, system_prompt="You are a helpful assistant that writes concise article summaries.")
+                # Some models (large local models, or slow-but-otherwise-fine
+                # hosted ones like big-pickle) legitimately take well over the
+                # app's 45s REQUEST_HARD_TIMEOUT to produce even a short reply
+                # — the same reason /api/chat is exempt from that timeout
+                # (it streams). /api/feeds/articles and /api/feeds/groups are
+                # exempted from REQUEST_HARD_TIMEOUT the same way (see app.py),
+                # so this query_llm `timeout` is now the real ceiling — set to
+                # match the 180s already used for slow-model tolerance
+                # elsewhere in this codebase (deep research synthesis). Input
+                # is still capped at 3000 chars / 500 tokens out purely to
+                # keep the summary itself short, not to dodge a timeout.
+                prompt = f"Summarize the following article in 2-3 paragraphs:\n\n{text[:3000]}"
+                summary = query_llm(
+                    prompt,
+                    # Reasoning-style models (e.g. big-pickle) aren't in this
+                    # codebase's known thinking-model list (_THINKING_MODEL_PATTERNS),
+                    # so the existing <think>-tag stripping never fires for them —
+                    # they just emit their chain-of-thought as plain prose ahead of
+                    # the actual answer. Telling them explicitly to skip it is the
+                    # only lever available short of per-model output parsing.
+                    system_prompt=(
+                        "You are a helpful assistant that writes concise article summaries. "
+                        "Respond with only the final summary text — no reasoning, analysis, "
+                        "or commentary about the task itself."
+                    ),
+                    max_tokens=1200,
+                    timeout=180,
+                )
                 row.summary = summary
                 db.commit()
                 return {"ok": True, "summary": summary}
@@ -497,6 +590,16 @@ def setup_feed_routes():
                 return {"ok": False, "error": "Article not found"}
             if not row.url:
                 return {"ok": False, "error": "No article URL"}
+            from services.youtube.youtube_handler import is_youtube_url
+            if is_youtube_url(row.url):
+                # trafilatura can't extract anything useful from a YouTube
+                # watch page (JS-rendered SPA) — use the transcript instead.
+                transcript = _youtube_transcript_text(row.url)
+                if not transcript:
+                    return {"ok": False, "error": "No transcript available for this video"}
+                row.content = transcript
+                db.commit()
+                return {"ok": True, "content": transcript}
             from services.feed.full_content import extract_content
             result = extract_content(row.url)
             if result is None:

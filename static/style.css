@@ -2392,7 +2392,10 @@ body.bg-pattern-sparkles {
       position: absolute;
       top: 0;
       right: 0;
-      z-index: 250;
+      /* Only needs to clear its own unpositioned siblings (textarea, ghost
+         overlay) — 250 put it above the Notes/RSS/Email-style pane backdrops
+         (z-index: 200), so it visually floated over those modals. */
+      z-index: 2;
       transform-origin: top right;
       transition: opacity 0.22s ease, transform 0.22s ease;
       will-change: opacity, transform;
@@ -12766,6 +12769,11 @@ textarea.memory-add-input {
 }
 .doc-action-icon-btn:hover {
   opacity: 1;
+}
+.doc-action-icon-btn:disabled {
+  opacity: 0.12;
+  cursor: default;
+  pointer-events: none;
 }
 /* The "T" icon stays centered in the fixed-size button so it grows
    symmetrically (from the center) instead of jumping around as the size
@@ -40898,6 +40906,11 @@ body.neon-glow #sidebar {
   font-size: 11px;
 }
 
+.rss-article-snippet-empty {
+  font-style: italic;
+  opacity: 0.4 !important;
+}
+
 .rss-article-snippet {
   font-size: 12px;
   opacity: 0.6;
@@ -40996,6 +41009,14 @@ body.neon-glow #sidebar {
   background: rgba(128,128,128,0.08);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.rss-reader-summary-loading {
+  animation: rss-summary-pulse 1.4s ease-in-out infinite;
+}
+@keyframes rss-summary-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .rss-reader-summary h4 {

@@ -21,6 +21,13 @@ let _selectedFeedIds = new Set();
 let _selectMode = false;
 let _groupSummary = '';
 let _groupSummaryLoading = false;
+// Snapshot of the article list taken when the reader opens, used for j/k and
+// Prev/Next navigation. Opening an article marks it read, which triggers a
+// background refresh of `_articles` (re-filtered if viewing "Unread") — if
+// navigation read from `_articles` directly, the list could reshuffle out
+// from under an in-progress reading session and "next" would jump to an
+// unrelated article.
+let _readerNavList = [];
 const PAGE_LIMIT = 50;
 
 function _api(path, opts = {}) {
@@ -153,24 +160,30 @@ function _openPanel() {
             <button id="rss-reader-back" class="doc-action-icon-btn" title="Back to list">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </button>
+            <button id="rss-reader-prev" class="doc-action-icon-btn" title="Previous article (k)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <button id="rss-reader-next" class="doc-action-icon-btn" title="Next article (j)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
             <a id="rss-reader-original" href="#" target="_blank" class="doc-action-icon-btn" title="Open original" style="text-decoration:none">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
             <span class="rss-toolbar-sep" aria-hidden="true"></span>
-            <button id="rss-reader-star" class="doc-action-icon-btn" title="Toggle star">
+            <button id="rss-reader-star" class="doc-action-icon-btn" title="Toggle star (s)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             </button>
             <button id="rss-reader-tts" class="doc-action-icon-btn" title="Read aloud" style="display:none">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
             </button>
             <button id="rss-reader-summarize" class="doc-action-icon-btn" title="AI Summary" style="opacity:0.8;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>
             </button>
             <button id="rss-reader-full" class="doc-action-icon-btn" title="Fetch full content" style="opacity:0.8;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
             <span style="flex:1"></span>
-            <button id="rss-reader-mark-read" class="doc-action-icon-btn" title="Mark read">
+            <button id="rss-reader-mark-read" class="doc-action-icon-btn" title="Mark read (m)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
             </button>
           </div>
@@ -206,6 +219,8 @@ function _wireEvents(pane) {
     closePanel();
   });
   _el('rss-reader-back')?.addEventListener('click', _closeReader);
+  _el('rss-reader-prev')?.addEventListener('click', _prevArticle);
+  _el('rss-reader-next')?.addEventListener('click', _nextArticle);
   _el('rss-reader-star')?.addEventListener('click', _toggleReaderStar);
   _el('rss-reader-mark-read')?.addEventListener('click', _markReaderRead);
   _el('rss-reader-summarize')?.addEventListener('click', _summarizeReaderArticle);
@@ -258,6 +273,26 @@ function _wireEvents(pane) {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') _closeVideoModal();
+    if (!_open) return;
+    const tag = (e.target?.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'j':
+        e.preventDefault();
+        _nextArticle();
+        break;
+      case 'k':
+        e.preventDefault();
+        _prevArticle();
+        break;
+      case 'm':
+        if (_activeArticleId) { e.preventDefault(); _markReaderRead(); }
+        break;
+      case 's':
+        if (_activeArticleId) { e.preventDefault(); _toggleReaderStar(); }
+        break;
+    }
   });
 }
 
@@ -656,7 +691,7 @@ function _renderArticleList() {
       <span style="font-size:10px;opacity:0.6">${group ? group.name : 'Group'}</span>
       <span style="flex:1"></span>
       <button class="rss-summarize-btn" id="rss-summarize-group-btn" data-group-id="${_activeGroupId}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>
         AI Summary
       </button>
     </div>`;
@@ -676,7 +711,15 @@ function _renderArticleList() {
     const feedTitle = a.feed?.title || '';
     const feedIcon = a.feed?.icon || '';
     const time = a.published_at ? _formatTime(a.published_at) : '';
-    const snippet = a.content ? a.content.replace(/<[^>]+>/g, '').slice(0, 150) : '';
+    const rawSnippet = a.content ? a.content.replace(/<[^>]+>/g, '').trim().slice(0, 150) : '';
+    const isVideo = !!(_getYoutubeVideoId(a.url) || _getYoutubeVideoId(a.guid));
+    // feedparser leaves content/summary empty for a lot of YouTube entries
+    // (mostly Shorts) — an empty snippet div left a dead blank line in the
+    // list. Show a clear placeholder for videos, omit the row entirely
+    // otherwise so non-video articles without a snippet don't get one either.
+    const snippetHtml = rawSnippet
+      ? `<div class="rss-article-snippet">${rawSnippet}</div>`
+      : (isVideo ? '<div class="rss-article-snippet rss-article-snippet-empty">▶ No description available</div>' : '');
     html += `<div class="rss-article-item ${a.is_read ? 'rss-article-read' : ''} ${_activeArticleId === a.id ? 'active' : ''}" data-article-id="${a.id}">
       ${a.image ? `<div class="rss-article-thumb" style="background-image: url('${a.image}')"></div>` : ''}
       <div class="rss-article-body">
@@ -686,7 +729,7 @@ function _renderArticleList() {
           ${time ? `<span class="rss-article-time">${time}</span>` : ''}
           ${a.is_starred ? '<span class="rss-starred-indicator">★</span>' : ''}
         </div>
-        <div class="rss-article-snippet">${snippet}</div>
+        ${snippetHtml}
       </div>
     </div>`;
   }
@@ -702,6 +745,7 @@ function _renderArticleList() {
       list.querySelectorAll('.rss-article-item').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
       _activeArticleId = el.dataset.articleId;
+      _readerNavList = _articles.slice();
       _openReader(_activeArticleId);
     });
   });
@@ -712,18 +756,23 @@ async function _summarizeGroup() {
   _groupSummaryLoading = true;
   _groupSummary = '';
   _renderArticleList();
-  const res = await _api(`/groups/${_activeGroupId}/summarize`, { method: 'POST' });
-  _groupSummaryLoading = false;
-  if (res.ok && res.summary) {
-    _groupSummary = res.summary;
-  } else {
-    _groupSummary = 'Failed to generate summary.';
+  try {
+    const res = await _api(`/groups/${_activeGroupId}/summarize`, { method: 'POST' });
+    _groupSummary = (res.ok && res.summary) ? res.summary : 'Failed to generate summary.';
+  } catch (e) {
+    _groupSummary = 'Failed to generate summary: could not reach the server.';
+  } finally {
+    _groupSummaryLoading = false;
+    _renderArticleList();
   }
-  _renderArticleList();
 }
 
 function _openReader(articleId) {
-  const article = _articles.find(a => a.id === articleId);
+  // Prefer the frozen nav-list snapshot so a background list refresh
+  // (triggered by marking an article read) can't swap the article out from
+  // under an in-progress reading session; fall back to the live list for
+  // safety if the reader was somehow opened without a snapshot.
+  const article = _readerNavList.find(a => a.id === articleId) || _articles.find(a => a.id === articleId);
   if (!article) return;
   _el('rss-article-list').style.display = 'none';
   const reader = _el('rss-reader');
@@ -752,6 +801,12 @@ function _openReader(articleId) {
   _el('rss-reader-star').classList.toggle('rss-star-active', article.is_starred);
   _el('rss-reader-tts').style.display = window.aiTTSManager ? '' : 'none';
 
+  const idx = _readerNavList.findIndex(a => a.id === articleId);
+  const prevBtn = _el('rss-reader-prev');
+  const nextBtn = _el('rss-reader-next');
+  if (prevBtn) prevBtn.disabled = idx <= 0;
+  if (nextBtn) nextBtn.disabled = idx === -1 || idx >= _readerNavList.length - 1;
+
   if (!article.is_read) {
     _api(`/articles/${articleId}/read`, {
       method: 'PUT',
@@ -759,18 +814,51 @@ function _openReader(articleId) {
     });
     article.is_read = true;
     _loadFeeds();
-    _el(`.rss-article-item[data-article-id="${articleId}"]`)?.classList.add('rss-article-read');
+    document.querySelector(`.rss-article-item[data-article-id="${articleId}"]`)?.classList.add('rss-article-read');
   }
+}
+
+function _readerArticleIndex() {
+  return _readerNavList.findIndex(a => a.id === _activeArticleId);
+}
+
+function _openReaderByIndex(idx) {
+  if (idx < 0 || idx >= _readerNavList.length) return;
+  const article = _readerNavList[idx];
+  _activeArticleId = article.id;
+  document.querySelectorAll('.rss-article-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.articleId === article.id);
+  });
+  _openReader(article.id);
+}
+
+function _nextArticle() {
+  const idx = _readerArticleIndex();
+  if (idx === -1) {
+    if (_readerNavList.length) _openReaderByIndex(0);
+    return;
+  }
+  _openReaderByIndex(idx + 1);
+}
+
+function _prevArticle() {
+  const idx = _readerArticleIndex();
+  if (idx === -1) {
+    if (_readerNavList.length) _openReaderByIndex(0);
+    return;
+  }
+  _openReaderByIndex(idx - 1);
 }
 
 function _closeReader() {
   _el('rss-article-list').style.display = '';
   _el('rss-reader').style.display = 'none';
   _activeArticleId = null;
+  _readerNavList = [];
 }
 
 async function _toggleReaderStar() {
-  const article = _articles.find(a => a.id === _activeArticleId);
+  const article = _readerNavList.find(a => a.id === _activeArticleId) || _articles.find(a => a.id === _activeArticleId);
   if (!article) return;
   const newVal = !article.is_starred;
   await _api(`/articles/${_activeArticleId}/star`, {
@@ -782,7 +870,7 @@ async function _toggleReaderStar() {
 }
 
 async function _markReaderRead() {
-  const article = _articles.find(a => a.id === _activeArticleId);
+  const article = _readerNavList.find(a => a.id === _activeArticleId) || _articles.find(a => a.id === _activeArticleId);
   if (!article) return;
   await _api(`/articles/${_activeArticleId}/read`, {
     method: 'PUT',
@@ -794,21 +882,33 @@ async function _markReaderRead() {
 
 async function _summarizeReaderArticle() {
   const summaryBtn = _el('rss-reader-summarize');
-  if (!summaryBtn) return;
-  summaryBtn.textContent = '...';
-  const res = await _api(`/articles/${_activeArticleId}/summarize`, { method: 'POST' });
-  summaryBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
-  if (res.ok && res.summary) {
-    uiModule.showToast('Summary generated');
-    const content = _el('rss-reader-content');
-    const existing = content.querySelector('.rss-reader-summary');
-    if (existing) existing.remove();
-    const div = document.createElement('div');
-    div.className = 'rss-reader-summary';
-    div.innerHTML = `<h4>AI Summary</h4><p>${res.summary}</p>`;
-    content.prepend(div);
-  } else {
-    uiModule.showError(res.error || 'Summarization failed');
+  if (!summaryBtn || summaryBtn.disabled) return;
+  const content = _el('rss-reader-content');
+  content?.querySelector('.rss-reader-summary')?.remove();
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'rss-reader-summary rss-reader-summary-loading';
+  loadingDiv.innerHTML = '<h4>AI Summary</h4><p>Generating summary…</p>';
+  content?.prepend(loadingDiv);
+
+  summaryBtn.disabled = true;
+  summaryBtn.style.opacity = '0.4';
+  try {
+    const res = await _api(`/articles/${_activeArticleId}/summarize`, { method: 'POST' });
+    if (res.ok && res.summary) {
+      loadingDiv.classList.remove('rss-reader-summary-loading');
+      loadingDiv.innerHTML = `<h4>AI Summary</h4><p>${res.summary}</p>`;
+      uiModule.showToast('Summary generated');
+    } else {
+      loadingDiv.remove();
+      uiModule.showError(res.error || 'Summarization failed');
+    }
+  } catch (e) {
+    loadingDiv.remove();
+    uiModule.showError('Summarization failed: could not reach the server');
+  } finally {
+    summaryBtn.disabled = false;
+    summaryBtn.style.opacity = '';
   }
 }
 
@@ -834,7 +934,7 @@ async function _refreshAll() {
 }
 
 function _playTTS() {
-  const article = _articles.find(a => a.id === _activeArticleId);
+  const article = _readerNavList.find(a => a.id === _activeArticleId) || _articles.find(a => a.id === _activeArticleId);
   if (!article || !window.aiTTSManager) return;
   const content = _el('rss-reader-content')?.querySelector('.rss-reader-body')?.textContent || article.content || '';
   window.aiTTSManager.speak(content, { title: article.title });
