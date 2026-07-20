@@ -40518,7 +40518,7 @@ body.neon-glow #sidebar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 24px 7px 10px;
+  padding: 7px 42px 7px 10px;
   cursor: pointer;
   font-size: 12px;
   transition: background 0.15s;
@@ -40581,7 +40581,25 @@ body.neon-glow #sidebar {
   transition: opacity 0.15s;
 }
 
-.rss-feed-item:hover .rss-feed-delete {
+.rss-feed-interval {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.rss-feed-item:hover .rss-feed-delete,
+.rss-feed-item:hover .rss-feed-interval {
   opacity: 0.55;
 }
 
@@ -40589,6 +40607,12 @@ body.neon-glow #sidebar {
   opacity: 1 !important;
   color: var(--red);
   background: rgba(200,50,50,0.15);
+}
+
+.rss-feed-interval:hover {
+  opacity: 1 !important;
+  color: var(--fg);
+  background: rgba(128,128,128,0.15);
 }
 
 .rss-feed-icon {

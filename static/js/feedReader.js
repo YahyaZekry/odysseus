@@ -29,6 +29,7 @@ let _activeArticleId = null;
 let _filter = 'unread';
 let _searchQuery = '';
 let _pageOffset = 0;
+let _articlesLoadingMore = false;
 let _groupCollapsed = new Set();
 let _selectedFeedIds = new Set();
 let _selectMode = false;
@@ -248,9 +249,19 @@ function _wireEvents(pane) {
   _el('rss-search')?.addEventListener('input', (e) => {
     _searchQuery = e.target.value.trim();
     _pageOffset = 0;
+    _articlesLoadingMore = false;
     _loadArticles();
   });
   _el('rss-reader-tts')?.addEventListener('click', _playTTS);
+
+  _el('rss-article-list')?.addEventListener('click', _onArticleListClick);
+  _el('rss-article-list')?.addEventListener('scroll', () => {
+    const list = _el('rss-article-list');
+    if (!list || _articlesLoadingMore || _articles.length >= _totalArticles) return;
+    if (list.scrollTop + list.clientHeight < list.scrollHeight - 300) return;
+    _articlesLoadingMore = true;
+    _loadArticles(true).finally(() => { _articlesLoadingMore = false; });
+  }, { passive: true });
 
   pane.querySelectorAll('.rss-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -258,6 +269,7 @@ function _wireEvents(pane) {
       btn.classList.add('active');
       _filter = btn.dataset.filter;
       _pageOffset = 0;
+      _articlesLoadingMore = false;
       _loadArticles();
     });
   });
@@ -393,6 +405,10 @@ function _renderFeedList() {
       if (delBtn && (e.target === delBtn || delBtn.contains(e.target))) {
         return; // handled separately
       }
+      const intervalBtn = el.querySelector('.rss-feed-interval');
+      if (intervalBtn && (e.target === intervalBtn || intervalBtn.contains(e.target))) {
+        return; // handled separately
+      }
       list.querySelectorAll('.rss-feed-item').forEach(e => e.classList.remove('active'));
       list.querySelectorAll('.rss-group-header').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
@@ -400,6 +416,7 @@ function _renderFeedList() {
       _activeGroupId = el.dataset.groupId || null;
       _groupSummary = '';
       _pageOffset = 0;
+      _articlesLoadingMore = false;
       _closeReader();
       _loadArticles();
     });
@@ -420,6 +437,29 @@ function _renderFeedList() {
           }
         });
       }
+    });
+  });
+
+  list.querySelectorAll('.rss-feed-interval').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const feedId = btn.closest('.rss-feed-item').dataset.feedId;
+      const feed = _feeds.find(f => f.id === feedId);
+      if (!feed) return;
+      const input = prompt('Refresh interval in minutes:', String(feed.fetch_interval || 60));
+      if (input === null) return;
+      const n = parseInt(input, 10);
+      if (!Number.isInteger(n) || n <= 0) {
+        uiModule.showError('Enter a positive whole number of minutes');
+        return;
+      }
+      _api(`/${feedId}`, { method: 'PUT', body: JSON.stringify({ fetch_interval: n }) }).then(res => {
+        if (res.ok) {
+          _loadFeeds();
+        } else {
+          uiModule.showError(res.error || 'Failed to update refresh interval');
+        }
+      });
     });
   });
 
@@ -486,6 +526,7 @@ function _renderFeedList() {
       _activeGroupId = el.dataset.groupId || null;
       _groupSummary = '';
       _pageOffset = 0;
+      _articlesLoadingMore = false;
       _closeReader();
       _loadArticles();
     });
@@ -502,6 +543,32 @@ function _renderFeedList() {
     excludeSelector: '[data-feed-id=""]',
     onReorder: _onFeedListReordered,
   });
+
+  // A collapsed group renders only its header, no .rss-feed-item rows — since
+  // dragSort's placeholder-positioning only compares against other feed items
+  // (headers aren't part of that math), a collapsed group has no droppable
+  // space to land in. dragSort assumes a stable DOM for one drag gesture (it
+  // captures draggedEl/placeholder/items at drag-start), so re-rendering to
+  // expand groups can't happen mid-drag without orphaning its refs — instead,
+  // intercept in the CAPTURE phase, before dragSort's own bubble-phase
+  // mousedown listener on this same container gets to run at all: if
+  // anything is collapsed, expand everything and stopImmediatePropagation so
+  // this click doesn't also start a drag. The user needs a second press to
+  // actually drag, now against the expanded list. #rss-feed-list itself
+  // persists across re-renders (only its innerHTML is replaced), so this
+  // guard prevents re-adding the listener on every _renderFeedList() call —
+  // unlike dragSortModule.enable() above, a plain addEventListener has no
+  // built-in re-registration cleanup.
+  if (!list.dataset.collapseDragWired) {
+    list.dataset.collapseDragWired = '1';
+    list.addEventListener('mousedown', (e) => {
+      if (!e.target.closest('.rss-feed-drag-handle')) return;
+      if (_groupCollapsed.size === 0) return;
+      e.stopImmediatePropagation();
+      _groupCollapsed.clear();
+      _renderFeedList();
+    }, { capture: true });
+  }
 }
 
 async function _onFeedListReordered() {
@@ -684,6 +751,7 @@ function _feedItemHtml(f) {
     <span class="rss-feed-icon">${_feedIconHtml(icon, f.title)}</span>
     <span class="rss-feed-name" title="${_escapeHtml(f.title || 'Untitled')}">${f.title || 'Untitled'}</span>
     ${(f.unread || 0) > 0 ? `<span class="rss-unread-badge">${f.unread}</span>` : ''}
+    <button class="rss-feed-interval" title="Set refresh interval">⏱</button>
     <button class="rss-feed-delete" title="Delete feed">&times;</button>
   </div>`;
 }
@@ -764,6 +832,7 @@ function _renderGroupTreeNode(node, depth) {
         <span class="rss-feed-icon">${_feedIconHtml(icon, f.title)}</span>
         <span class="rss-feed-name" title="${_escapeHtml(f.title || 'Untitled')}">${f.title || 'Untitled'}</span>
         ${(f.unread || 0) > 0 ? `<span class="rss-unread-badge">${f.unread}</span>` : ''}
+        <button class="rss-feed-interval" title="Set refresh interval">⏱</button>
         <button class="rss-feed-delete" title="Delete feed">&times;</button>
       </div>`;
     }
@@ -774,7 +843,12 @@ function _renderGroupTreeNode(node, depth) {
   return html;
 }
 
-async function _loadArticles() {
+async function _loadArticles(append = false) {
+  if (append) {
+    _pageOffset += PAGE_LIMIT;
+  } else {
+    _pageOffset = 0;
+  }
   const params = new URLSearchParams();
   params.set('limit', String(PAGE_LIMIT));
   params.set('offset', String(_pageOffset));
@@ -793,20 +867,64 @@ async function _loadArticles() {
   if (_searchQuery) params.set('search', _searchQuery);
 
   const res = await _api(`/articles?${params.toString()}`);
-  _articles = res.articles || [];
+  const newBatch = res.articles || [];
+  _articles = append ? _articles.concat(newBatch) : newBatch;
   _totalArticles = res.total || 0;
-  _renderArticleList();
+  _renderArticleList(newBatch, append);
 }
 
-function _renderArticleList() {
+function _articleItemHtml(a) {
+  const feedTitle = a.feed?.title || '';
+  const feedIcon = a.feed?.icon || '';
+  const time = a.published_at ? _formatTime(a.published_at) : '';
+  const rawSnippet = a.content ? a.content.replace(/<[^>]+>/g, '').trim().slice(0, 150) : '';
+  const isVideo = !!(_getYoutubeVideoId(a.url) || _getYoutubeVideoId(a.guid));
+  // feedparser leaves content/summary empty for a lot of YouTube entries
+  // (mostly Shorts) — an empty snippet div left a dead blank line in the
+  // list. Show a clear placeholder for videos, omit the row entirely
+  // otherwise so non-video articles without a snippet don't get one either.
+  const snippetHtml = rawSnippet
+    ? `<div class="rss-article-snippet">${rawSnippet}</div>`
+    : (isVideo ? '<div class="rss-article-snippet rss-article-snippet-empty">▶ No description available</div>' : '');
+  return `<div class="rss-article-item ${a.is_read ? 'rss-article-read' : ''} ${_activeArticleId === a.id ? 'active' : ''}" data-article-id="${a.id}">
+      ${a.image ? `<div class="rss-article-thumb" style="background-image: url('${a.image}')"></div>` : ''}
+      <div class="rss-article-body">
+        <div class="rss-article-title">${a.title || 'Untitled'}</div>
+        <div class="rss-article-meta">
+          <span class="rss-article-feed">${feedIcon ? `<img src="${feedIcon}" alt="" width="10" height="10" />` : ''} ${feedTitle}</span>
+          ${time ? `<span class="rss-article-time">${time}</span>` : ''}
+          ${a.is_starred ? '<span class="rss-starred-indicator">★</span>' : ''}
+        </div>
+        ${snippetHtml}
+      </div>
+    </div>`;
+}
+
+// Article click handling uses a single delegated listener (wired once in
+// _wireEvents, not per-render) rather than per-item addEventListener — with
+// infinite scroll appending batches into the same list, re-querying and
+// re-attaching a fresh listener to every item on every render would pile up
+// duplicate listeners on items already in the DOM from earlier pages.
+function _onArticleListClick(e) {
+  const list = _el('rss-article-list');
+  const el = e.target.closest('.rss-article-item');
+  if (!list || !el || !list.contains(el)) return;
+  list.querySelectorAll('.rss-article-item').forEach(item => item.classList.remove('active'));
+  el.classList.add('active');
+  _activeArticleId = el.dataset.articleId;
+  _readerNavList = _articles.slice();
+  _openReader(_activeArticleId);
+}
+
+function _renderArticleList(newArticles = _articles, append = false) {
   const list = _el('rss-article-list');
   if (!list) return;
-  if (_articles.length === 0) {
+  if (!append && newArticles.length === 0) {
     list.innerHTML = `<div class="rss-empty-state">No articles found</div>`;
     return;
   }
   let html = '';
-  if (_activeGroupId && !_activeFeedId) {
+  if (!append && _activeGroupId && !_activeFeedId) {
     const group = _groups.find(g => g.id === _activeGroupId);
     html += `<div class="rss-summarize-bar">
       <span style="font-size:10px;opacity:0.6">${group ? group.name : 'Group'}</span>
@@ -828,48 +946,20 @@ function _renderArticleList() {
       </div>`;
     }
   }
-  for (const a of _articles) {
-    const feedTitle = a.feed?.title || '';
-    const feedIcon = a.feed?.icon || '';
-    const time = a.published_at ? _formatTime(a.published_at) : '';
-    const rawSnippet = a.content ? a.content.replace(/<[^>]+>/g, '').trim().slice(0, 150) : '';
-    const isVideo = !!(_getYoutubeVideoId(a.url) || _getYoutubeVideoId(a.guid));
-    // feedparser leaves content/summary empty for a lot of YouTube entries
-    // (mostly Shorts) — an empty snippet div left a dead blank line in the
-    // list. Show a clear placeholder for videos, omit the row entirely
-    // otherwise so non-video articles without a snippet don't get one either.
-    const snippetHtml = rawSnippet
-      ? `<div class="rss-article-snippet">${rawSnippet}</div>`
-      : (isVideo ? '<div class="rss-article-snippet rss-article-snippet-empty">▶ No description available</div>' : '');
-    html += `<div class="rss-article-item ${a.is_read ? 'rss-article-read' : ''} ${_activeArticleId === a.id ? 'active' : ''}" data-article-id="${a.id}">
-      ${a.image ? `<div class="rss-article-thumb" style="background-image: url('${a.image}')"></div>` : ''}
-      <div class="rss-article-body">
-        <div class="rss-article-title">${a.title || 'Untitled'}</div>
-        <div class="rss-article-meta">
-          <span class="rss-article-feed">${feedIcon ? `<img src="${feedIcon}" alt="" width="10" height="10" />` : ''} ${feedTitle}</span>
-          ${time ? `<span class="rss-article-time">${time}</span>` : ''}
-          ${a.is_starred ? '<span class="rss-starred-indicator">★</span>' : ''}
-        </div>
-        ${snippetHtml}
-      </div>
-    </div>`;
+  for (const a of newArticles) {
+    html += _articleItemHtml(a);
   }
-  list.innerHTML = html;
 
+  if (append) {
+    list.insertAdjacentHTML('beforeend', html);
+    return;
+  }
+
+  list.innerHTML = html;
   const summarizeBtn = _el('rss-summarize-group-btn');
   if (summarizeBtn) {
     summarizeBtn.addEventListener('click', _summarizeGroup);
   }
-
-  list.querySelectorAll('.rss-article-item').forEach(el => {
-    el.addEventListener('click', () => {
-      list.querySelectorAll('.rss-article-item').forEach(e => e.classList.remove('active'));
-      el.classList.add('active');
-      _activeArticleId = el.dataset.articleId;
-      _readerNavList = _articles.slice();
-      _openReader(_activeArticleId);
-    });
-  });
 }
 
 async function _summarizeGroup() {
@@ -1054,11 +1144,17 @@ async function _refreshAll() {
   }, 3000);
 }
 
-function _playTTS() {
+async function _playTTS() {
   const article = _readerNavList.find(a => a.id === _activeArticleId) || _articles.find(a => a.id === _activeArticleId);
   if (!article || !window.aiTTSManager) return;
   const content = _el('rss-reader-content')?.querySelector('.rss-reader-body')?.textContent || article.content || '';
-  window.aiTTSManager.speak(content, { title: article.title });
+  // AITTSManager only exposes play(text) — there is no speak() method, so
+  // clicking this button used to silently do nothing.
+  try {
+    await window.aiTTSManager.play(content);
+  } catch (e) {
+    uiModule.showError('Failed to play audio: ' + (e?.message || e));
+  }
 }
 
 function _showAddFeedModal() {
