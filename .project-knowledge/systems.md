@@ -1,6 +1,6 @@
 # Systems
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-20
 
 | System | Status | Details |
 |--------|--------|---------|
@@ -28,7 +28,7 @@
 | Shell | ✅ Active | User-facing command execution (admin-gated) |
 | Companion App | ✅ Active | Mobile companion pairing endpoints |
 | Codex / Claude Integration | ✅ Active | External AI code editor bridge |
-| RSS Feed Reader | ✅ Active | RSS/Atom feed reader with AI summaries, OPML import/export, 3-pane UI, YouTube channel support |
+| RSS Feed Reader | ✅ Active | RSS/Atom feed reader with AI summaries (incl. YouTube transcript fallback), OPML import/export, 3-pane UI, YouTube channel support, keyboard nav |
 | Notifications (ntfy) | ✅ Active | Push notification support |
 | Docker Deployment | ✅ Active | Docker Compose with GPU overlays |
 | PWA | ✅ Active | Service worker, manifest.json |

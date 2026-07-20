@@ -1,6 +1,6 @@
 # Roadmap
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-20
 > Forward-looking only. Check this before starting any task — know what's in flight.
 
 ## Current Goal
@@ -33,16 +33,19 @@
 - [ ] **Add server-side "Export to PDF"** for research reports / documents / chat answers — today PDF export is browser-print only (`window.print()`), and `/api/document/{id}/export-pdf` is form-fill only (requires a linked source PDF). No server-side markdown/HTML→PDF engine exists. Add a real report→PDF download. Refs: `src/visual_report.py:897`, `routes/document_routes.py:1384-1423`.
 - [ ] **In-product guidance: chat vs deep research** — users conflate the two. Deep research = web-grounded summarizer pipeline (own template + token cap); chat/agent + `web_search` tool = model-led (like Perplexity/Opus). Add a tooltip/hint clarifying when to use each.
 
-**RSS Feed Reader** *(added 2026-06-11)*
+**RSS Feed Reader** *(added 2026-06-11, updated 2026-07-20)*
 - [ ] **TTS button relies on `window.aiTTSManager`** — hidden if absent; needs existing TTS module reference wired in
 - [ ] **Per-feed fetch interval** — `fetch_interval` column exists but not exposed in UI or scheduler
 - [ ] **Auto-refresh** — need to wire into existing `task_scheduler` for background polling
-- [ ] **Keyboard shortcuts** — j/k navigate articles, m read/unread, s star
 - [ ] **Infinite scroll** — article list is paginated (offset/limit) but no scroll trigger for next page
 - [ ] **MCP server** — expose feed read/search/subscribe to the AI agent via MCP
-- [ ] **Dedup UI** — `feedparser` returns empty content/summary for YouTube entries, resulting in empty snippets
 - [ ] **CSP scoped to HTTPS-images** — `img-src ... https:` allows all HTTPS origins, which is broad. Could scope to known CDNs (`i*.ytimg.com`, `*.ytimg.com`) for stricter policy
 - [ ] **YouTube embed video Error 153 persists** — in-page overlay embed (`www.youtube.com/embed/VIDEO_ID?autoplay=1`) gives YouTube's internal "Video player configuration error" for at least some videos (Diego Woods channel, possibly shorts). Workaround: "Watch on YouTube" link below the embed opens video directly on YouTube (counts views, new tab). Root cause is YouTube-side (embedding disabled per-video or per-channel), not CSP or origin.
+- [x] ~~Keyboard shortcuts — j/k navigate articles, m read/unread, s star~~ — done 2026-07-20, see [[history]]
+- [x] ~~Dedup UI — feedparser returns empty content/summary for YouTube entries~~ — done 2026-07-20, see [[history]]
+
+**One-shot LLM calls and reasoning-model leakage** *(added 2026-07-20)*
+- [ ] **`query_llm()` has no generic reasoning-output handling** — only `routes/feed_routes.py`'s two RSS summarize endpoints call it today, and both now carry an explicit "no reasoning/commentary" system-prompt instruction as a workaround (see [[history]]). The underlying gap is in `llm_call()` itself: `_THINKING_MODEL_PATTERNS` (`src/llm_core.py:1233`) is a fixed name-list used to decide when to parse structured/`<think>`-tagged reasoning out of a response; a model outside that list (e.g. a hosted alias like `big-pickle` on OpenCode Zen) that reasons in plain prose with no separating tag/field will leak its full chain-of-thought into any *non-streaming* caller's result. Any future one-shot `query_llm()` consumer needs the same prompt-level workaround, or `llm_call()` needs a real fix (e.g. a "no visible reasoning" request-level flag, or a heuristic strip pass) so callers don't have to know about this per-model quirk themselves.
 
 ---
 

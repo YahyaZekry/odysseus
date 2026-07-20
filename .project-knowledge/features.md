@@ -1,6 +1,6 @@
 # Features & Workflows
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-20
 
 ## Features
 
@@ -33,7 +33,7 @@
 - **2FA** — Two-factor authentication via TOTP.
 - **Emoji SVG Proxy** — Same-origin lazy-cached Twemoji SVGs for chat rendering.
 - **TTS/STT** — Text-to-speech and speech-to-text (optional local Whisper STT).
-- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries, article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution. *(added: 2026-06-11)*
+- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries (including YouTube transcript-based summaries when `feedparser` leaves content empty), article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution, j/k/m/s keyboard shortcuts + Prev/Next navigation. *(added: 2026-06-11, updated 2026-07-20)*
 - **llama.cpp Auto-Detection** — server discovery now identifies llama.cpp servers and labels them as local providers in the model picker. *(added: upstream, 2026-06-25)*
 - **Admin: Share Defaults Toggle** — admins can choose whether their default model/endpoint is shared with all users. *(added: upstream, 2026-06-25)*
 - **Chat Padding Toggle** — UI setting to toggle padding around the chat area. *(added: upstream, 2026-06-25)*
@@ -108,6 +108,7 @@
 
 **Feed Reader — Read and Navigate Articles**
 1. Click feed in sidebar → `_loadArticles()` fetches articles (paginated, filterable by unread/starred/feed)
-2. Click article in list → `_openReader()` shows reader view (title, date, full content or summary)
-3. Toolbar: back, star/unstar, AI summarize, full-content fetch, open original, mark read
-4. Reader view is inside the main RSS modal with drag/dock/fullscreen support
+2. Click article in list → `_openReader()` shows reader view (title, date, full content or summary); list view snapshots into `_readerNavList` at this point so navigation stays stable even if a background list refresh happens mid-session
+3. Toolbar: Prev/Next, back, star/unstar, AI summarize, full-content fetch, open original, mark read
+4. Keyboard shortcuts while the reader is open: `j`/`k` next/prev article, `m` mark read, `s` star
+5. Reader view is inside the main RSS modal with drag/dock/fullscreen support
