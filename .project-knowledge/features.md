@@ -33,7 +33,7 @@
 - **2FA** — Two-factor authentication via TOTP.
 - **Emoji SVG Proxy** — Same-origin lazy-cached Twemoji SVGs for chat rendering.
 - **TTS/STT** — Text-to-speech and speech-to-text (optional local Whisper STT).
-- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries (including YouTube transcript-based summaries when `feedparser` leaves content empty), article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution, j/k/m/s keyboard shortcuts + Prev/Next navigation. *(added: 2026-06-11, updated 2026-07-20)*
+- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries (including YouTube transcript-based summaries when `feedparser` leaves content empty), article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution, j/k/m/s keyboard shortcuts + Prev/Next navigation, drag-to-reorder/move feeds between groups. *(added: 2026-06-11, updated 2026-07-20)*
 - **llama.cpp Auto-Detection** — server discovery now identifies llama.cpp servers and labels them as local providers in the model picker. *(added: upstream, 2026-06-25)*
 - **Admin: Share Defaults Toggle** — admins can choose whether their default model/endpoint is shared with all users. *(added: upstream, 2026-06-25)*
 - **Chat Padding Toggle** — UI setting to toggle padding around the chat area. *(added: upstream, 2026-06-25)*
@@ -112,3 +112,10 @@
 3. Toolbar: Prev/Next, back, star/unstar, AI summarize, full-content fetch, open original, mark read
 4. Keyboard shortcuts while the reader is open: `j`/`k` next/prev article, `m` mark read, `s` star
 5. Reader view is inside the main RSS modal with drag/dock/fullscreen support
+
+**Feed Reader — Drag to Reorder / Move Feeds Between Groups**
+1. Grab a feed's drag handle (`.rss-feed-drag-handle`) and drag vertically — same gesture for both actions
+2. Dropping within the same group's section reorders it there; dropping in a different group's section (or the synthetic "Ungrouped" section) moves it there
+3. `_onFeedListReordered` infers each feed's new group from the nearest preceding group header in final DOM order, diffs against in-memory state, and persists via `PUT /api/feeds/{id}` (`group_id` + `sort_order`) — same per-feed-call pattern as batch move
+4. Built on the shared `dragSortModule` (`static/js/dragSort.js`), also used by Models/Sessions/Gallery — no changes to that shared module were needed
+5. Collapsed groups can't receive a dropped feed (no rendered drop space) — must expand first
