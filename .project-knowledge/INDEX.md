@@ -3,7 +3,7 @@
 > Last updated: 2026-07-20
 > Status: Active
 > Stack: FastAPI (Python 3.11+) + SQLite/SQLAlchemy + Vanilla JS SPA + ChromaDB
-> Current goal: RSS Feed Reader sidebar/UX overhaul just landed on top of the AI-summary batch — group delete, favicon fix (RSS 2.0 `<image>` was never checked), collapse-icon fix, sidebar visual redesign, and drag-to-reorder/move-between-groups (new `Feed.sort_order` column). See [[history]] and [[sessions]] for details, [[roadmap]] for what's still open (auto-refresh, per-feed interval, MCP server, generic reasoning-leak fix in `llm_call()`, can't drop onto a collapsed group).
+> Current goal: The RSS Feed Reader backlog is now essentially clear — sidebar redesign, group delete, favicon fix, drag-and-drop (incl. dropping onto collapsed groups), TTS fix, per-feed refresh interval, optional auto-refresh scheduling, and infinite scroll all landed 2026-07-20. Also confirmed the SSRF `base_url`/`/api/v1/chat` roadmap item was already fixed despite its tracking PR being closed unmerged. See [[history]] and [[sessions]] for details, [[roadmap]] for what's still open (RSS MCP server, generic reasoning-leak fix in `llm_call()`, the broader non-RSS backlog).
 
 ## What This Project Does
 A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that runs on local hardware. Provides chat with any OpenAI-compatible LLM, an agent with tools (files, shell, web, MCP, memory, skills), deep research, email/calendar/contacts sync, notes/tasks, document editing, image generation, model management ("Cookbook"), RSS feed reader, and more. Privacy-first, local-first.

@@ -33,7 +33,7 @@
 - **2FA** — Two-factor authentication via TOTP.
 - **Emoji SVG Proxy** — Same-origin lazy-cached Twemoji SVGs for chat rendering.
 - **TTS/STT** — Text-to-speech and speech-to-text (optional local Whisper STT).
-- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries (including YouTube transcript-based summaries when `feedparser` leaves content empty), article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution, j/k/m/s keyboard shortcuts + Prev/Next navigation, drag-to-reorder/move feeds between groups. *(added: 2026-06-11, updated 2026-07-20)*
+- **RSS Feed Reader** — 3-pane RSS/Atom feed reader with AI summaries (including YouTube transcript-based summaries when `feedparser` leaves content empty), article thumbnails, star/read tracking, OPML import/export, YouTube channel URL resolution, j/k/m/s keyboard shortcuts + Prev/Next navigation, drag-to-reorder/move feeds between groups (including into collapsed groups), per-feed refresh interval, optional auto-refresh via the task scheduler, infinite-scroll article list, working TTS playback. *(added: 2026-06-11, updated 2026-07-20)*
 - **llama.cpp Auto-Detection** — server discovery now identifies llama.cpp servers and labels them as local providers in the model picker. *(added: upstream, 2026-06-25)*
 - **Admin: Share Defaults Toggle** — admins can choose whether their default model/endpoint is shared with all users. *(added: upstream, 2026-06-25)*
 - **Chat Padding Toggle** — UI setting to toggle padding around the chat area. *(added: upstream, 2026-06-25)*

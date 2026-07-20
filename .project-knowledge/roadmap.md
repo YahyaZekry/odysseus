@@ -34,18 +34,18 @@
 - [ ] **In-product guidance: chat vs deep research** — users conflate the two. Deep research = web-grounded summarizer pipeline (own template + token cap); chat/agent + `web_search` tool = model-led (like Perplexity/Opus). Add a tooltip/hint clarifying when to use each.
 
 **RSS Feed Reader** *(added 2026-06-11, updated 2026-07-20)*
-- [ ] **TTS button relies on `window.aiTTSManager`** — hidden if absent; needs existing TTS module reference wired in
-- [ ] **Per-feed fetch interval** — `fetch_interval` column exists but not exposed in UI or scheduler
-- [ ] **Auto-refresh** — need to wire into existing `task_scheduler` for background polling
-- [ ] **Infinite scroll** — article list is paginated (offset/limit) but no scroll trigger for next page
 - [ ] **MCP server** — expose feed read/search/subscribe to the AI agent via MCP
-- [ ] **CSP scoped to HTTPS-images** — `img-src ... https:` allows all HTTPS origins, which is broad. Could scope to known CDNs (`i*.ytimg.com`, `*.ytimg.com`) for stricter policy
 - [ ] **YouTube embed video Error 153 persists** — in-page overlay embed (`www.youtube.com/embed/VIDEO_ID?autoplay=1`) gives YouTube's internal "Video player configuration error" for at least some videos (Diego Woods channel, possibly shorts). Workaround: "Watch on YouTube" link below the embed opens video directly on YouTube (counts views, new tab). Root cause is YouTube-side (embedding disabled per-video or per-channel), not CSP or origin.
-- [ ] **Can't drop a feed directly onto a collapsed group** — the new drag-to-reorder/move feature (`_onFeedListReordered`, see [[history]]) infers a feed's new group purely from its final DOM position relative to the nearest preceding `.rss-group-header`; a collapsed group renders only its header with no feed rows beneath it, so there's no droppable space to land in — the group must be expanded first to receive a dragged feed.
 - [x] ~~Keyboard shortcuts — j/k navigate articles, m read/unread, s star~~ — done 2026-07-20, see [[history]]
 - [x] ~~Dedup UI — feedparser returns empty content/summary for YouTube entries~~ — done 2026-07-20, see [[history]]
 - [x] ~~Group deletion — no UI for it~~ — done 2026-07-20, see [[history]]
 - [x] ~~Drag-and-drop reorder feeds / move between groups~~ — done 2026-07-20, see [[history]]
+- [x] ~~Can't drop a feed directly onto a collapsed group~~ — done 2026-07-20, see [[history]]
+- [x] ~~TTS button relies on `window.aiTTSManager`~~ — done 2026-07-20, see [[history]]
+- [x] ~~Per-feed fetch interval — `fetch_interval` column exists but not exposed in UI~~ — done 2026-07-20, see [[history]]
+- [x] ~~Auto-refresh — need to wire into existing `task_scheduler`~~ — done 2026-07-20, see [[history]]
+- [x] ~~Infinite scroll — article list is paginated but no scroll trigger~~ — done 2026-07-20, see [[history]]
+- [x] ~~CSP scoped to HTTPS-images~~ — investigated 2026-07-20, closed as not safely implementable, see [[history]]
 
 **One-shot LLM calls and reasoning-model leakage** *(added 2026-07-20)*
 - [ ] **`query_llm()` has no generic reasoning-output handling** — only `routes/feed_routes.py`'s two RSS summarize endpoints call it today, and both now carry an explicit "no reasoning/commentary" system-prompt instruction as a workaround (see [[history]]). The underlying gap is in `llm_call()` itself: `_THINKING_MODEL_PATTERNS` (`src/llm_core.py:1233`) is a fixed name-list used to decide when to parse structured/`<think>`-tagged reasoning out of a response; a model outside that list (e.g. a hosted alias like `big-pickle` on OpenCode Zen) that reasons in plain prose with no separating tag/field will leak its full chain-of-thought into any *non-streaming* caller's result. Any future one-shot `query_llm()` consumer needs the same prompt-level workaround, or `llm_call()` needs a real fix (e.g. a "no visible reasoning" request-level flag, or a heuristic strip pass) so callers don't have to know about this per-model quirk themselves.
@@ -54,7 +54,7 @@
 
 **Security (`THREAT_MODEL.md` "Known Gaps", cross-referenced to real issues)** *(added 2026-07-19)*
 - [ ] **No shell/filesystem sandbox** for the agent's `bash`/`read`/`write` tools — see #1058 sandbox proposal.
-- [ ] **SSRF via `base_url` param on `/api/v1/chat`** for chat-scoped tokens — fix proposed in PR #1039, merge status unconfirmed.
+- [x] ~~SSRF via `base_url` param on `/api/v1/chat` for chat-scoped tokens~~ — confirmed fixed 2026-07-20, see [[history]]. PR #1039 itself closed unmerged, but equivalent hardening landed via a different commit path (`validate_public_http_url()`, `src/url_security.py:81`).
 - [ ] **`src/search/` vs `services/search/` — partially answered.** THREAT_MODEL.md confirms `core.py`/`providers.py` under `src/search/` alias `services/search` via `sys.modules` (not dead code), **but** `analytics.py`/`cache.py`/`content.py`/`query.py`/`ranking.py` are still independent copies that can drift from the real `services/search/` implementation. Tracked as #1058. (This replaces the earlier "fully unconfirmed" note — the aliasing is real, the drift risk on the 5 non-aliased files is the remaining gap.)
 - [ ] **Coarse token scopes** — only `chat`/`admin` scope tiers exist, no per-capability grant. See [[schema]] access rules.
 
