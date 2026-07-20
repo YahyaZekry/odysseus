@@ -218,7 +218,7 @@ def setup_feed_routes():
             if owner is not None:
                 q = q.filter(Feed.owner == owner)
             feeds = []
-            for f in q.order_by(Feed.title).all():
+            for f in q.order_by(Feed.sort_order, Feed.title).all():
                 unread = 0
                 try:
                     from core.database import Article
@@ -235,6 +235,7 @@ def setup_feed_routes():
                     "feed_url": f.feed_url,
                     "icon": f.icon,
                     "fetch_interval": f.fetch_interval,
+                    "sort_order": f.sort_order,
                     "last_fetched": f.last_fetched.isoformat() if f.last_fetched else None,
                     "error_count": f.error_count,
                     "last_error": f.last_error,
@@ -290,7 +291,7 @@ def setup_feed_routes():
             row = db.query(Feed).filter(Feed.id == feed_id).first()
             if not row or (owner is not None and row.owner != owner):
                 return {"ok": False, "error": "Feed not found"}
-            for key in ("title", "feed_url", "site_url", "group_id", "icon", "fetch_interval", "enabled"):
+            for key in ("title", "feed_url", "site_url", "group_id", "icon", "fetch_interval", "enabled", "sort_order"):
                 if key in data:
                     setattr(row, key, data[key])
             db.commit()

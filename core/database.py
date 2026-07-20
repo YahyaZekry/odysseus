@@ -1833,6 +1833,7 @@ class Feed(TimestampMixin, Base):
     error_count    = Column(Integer, default=0)
     last_error     = Column(String, nullable=True)
     enabled        = Column(Boolean, default=True)
+    sort_order     = Column(Integer, default=0)
 
 
 class Article(TimestampMixin, Base):
@@ -2029,7 +2030,31 @@ def init_db():
     _migrate_encrypt_signatures()
     _migrate_encrypt_endpoint_keys()
     _migrate_add_feed_group_parent_id()
+    _migrate_add_feed_sort_order()
     _migrate_backfill_task_folders()
+
+
+def _migrate_add_feed_sort_order():
+    """Add sort_order column to feeds table for drag-to-reorder."""
+    import sqlite3
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    if not os.path.exists(db_path):
+        return
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute("PRAGMA table_info(feeds)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if columns and "sort_order" not in columns:
+            conn.execute("ALTER TABLE feeds ADD COLUMN sort_order INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"feeds sort_order migration failed: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def _migrate_add_feed_group_parent_id():

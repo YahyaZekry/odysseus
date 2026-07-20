@@ -72,6 +72,19 @@ def fetch_feed(feed_url: str, timeout: int = 30) -> Optional[dict]:
             icon = feed_meta.icon or ""
         elif hasattr(feed_meta, "logo"):
             icon = feed_meta.logo or ""
+        elif hasattr(feed_meta, "image") and feed_meta.image:
+            # RSS 2.0's <image><url> — feedparser normalizes this under
+            # feed.image.href (not .icon/.logo, which are Atom-only). Most
+            # non-YouTube feeds are RSS 2.0, so this is the common case.
+            icon = feed_meta.image.get("href", "") if hasattr(feed_meta.image, "get") else ""
+        if not icon:
+            # Last resort: guess the site's root favicon. Works for most
+            # sites since it's a decades-old convention; the frontend falls
+            # back to a letter-avatar via <img onerror> if this 404s.
+            from urllib.parse import urlparse
+            domain = urlparse(site_url or feed_url).netloc
+            if domain:
+                icon = f"https://{domain}/favicon.ico"
 
         return {
             "title": feed_title,

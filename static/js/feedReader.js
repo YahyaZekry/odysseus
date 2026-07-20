@@ -3,8 +3,21 @@ import * as Modals from './modalManager.js';
 import { makeWindowDraggable } from './windowDrag.js';
 import { snapModalToZone } from './tileManager.js';
 import { clearDockSide } from './modalSnap.js';
+import dragSortModule from './dragSort.js';
 
 const API_BASE = window.location.origin;
+
+const _DRAG_HANDLE_SVG = '<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.3"/><circle cx="8" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="8" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="8" cy="12" r="1.3"/></svg>';
+
+// Feed/group titles come from external RSS sources — escape before use in an
+// HTML attribute (e.g. a title="" tooltip), since raw text content elsewhere
+// in this file already goes through the DOM's own text-node escaping.
+function _escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+}
+
 let _open = false;
 let _feeds = [];
 let _groups = [];
@@ -344,6 +357,15 @@ function _renderFeedList() {
   }
 
   if (ungroupedFeeds.length > 0) {
+    // Synthetic divider (not a real group) so there's an explicit boundary
+    // between the last real group's feeds and these — both for the user
+    // (a visible drop target for "ungroup this feed") and for
+    // _onFeedListReordered's group-inference walk, which would otherwise
+    // attribute these to whatever group happened to render last.
+    html += `<div class="rss-group-header rss-group-root rss-group-header-ungrouped" data-group-id="">
+      <span class="rss-group-toggle"></span>
+      <span class="rss-group-name">Ungrouped</span>
+    </div>`;
     for (const f of ungroupedFeeds) {
       html += _feedItemHtml(f);
     }
@@ -408,6 +430,7 @@ function _renderFeedList() {
       const target = e.target;
       const addSubBtn = el.querySelector('.rss-group-add-sub');
       const renameBtn = el.querySelector('.rss-group-rename');
+      const deleteBtn = el.querySelector('.rss-group-delete');
 
       if (addSubBtn && (target === addSubBtn || addSubBtn.contains(target))) {
         e.stopPropagation();
@@ -419,6 +442,13 @@ function _renderFeedList() {
         const gid = el.dataset.groupId;
         const g = _groups.find(x => x.id === gid);
         if (g) _promptRenameGroup(g);
+        return;
+      }
+      if (deleteBtn && (target === deleteBtn || deleteBtn.contains(target))) {
+        e.stopPropagation();
+        const gid = el.dataset.groupId;
+        const g = _groups.find(x => x.id === gid);
+        if (g) _promptDeleteGroup(g);
         return;
       }
 
@@ -460,6 +490,65 @@ function _renderFeedList() {
       _loadArticles();
     });
   });
+
+  // Drag-to-reorder + drag-onto-a-group-to-move: the whole list is one flat
+  // container (group headers and feed items interleaved by render order, not
+  // real DOM nesting — see _renderGroupTreeNode/_buildGroupTree), so dragSort's
+  // existing vertical magnetic reorder already handles both in one gesture —
+  // wherever a feed is dropped, _onFeedListReordered infers its new group from
+  // the nearest preceding group header in the final DOM order.
+  dragSortModule.enable('rss-feed-list', '.rss-feed-item', {
+    handleSelector: '.rss-feed-drag-handle',
+    excludeSelector: '[data-feed-id=""]',
+    onReorder: _onFeedListReordered,
+  });
+}
+
+async function _onFeedListReordered() {
+  const list = _el('rss-feed-list');
+  if (!list) return;
+  // Walk the FULL list (not just the .rss-feed-item items dragSort passes
+  // in) so group headers can be used to infer which group each feed landed
+  // in — a feed's group membership is determined purely by its final
+  // position relative to the nearest preceding header, the same section a
+  // user visually sees it drop into.
+  let currentGroupId = null;
+  let indexInGroup = 0;
+  const changes = [];
+  for (const child of Array.from(list.children)) {
+    if (child.classList.contains('rss-group-header')) {
+      currentGroupId = child.dataset.groupId || null;
+      indexInGroup = 0;
+      continue;
+    }
+    if (child.classList.contains('rss-feed-item')) {
+      const feedId = child.dataset.feedId;
+      if (!feedId) continue; // "All Feeds" pseudo-item, never draggable
+      changes.push({ feedId, group_id: currentGroupId, sort_order: indexInGroup });
+      indexInGroup++;
+    }
+  }
+
+  let ok = 0, attempted = 0;
+  for (const c of changes) {
+    const f = _feeds.find(x => x.id === c.feedId);
+    if (!f) continue;
+    const groupChanged = (f.group_id || null) !== c.group_id;
+    const orderChanged = (f.sort_order || 0) !== c.sort_order;
+    if (!groupChanged && !orderChanged) continue;
+    attempted++;
+    const res = await _api(`/${c.feedId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ group_id: c.group_id, sort_order: c.sort_order }),
+    });
+    if (res.ok) ok++;
+  }
+  if (attempted > 0 && ok < attempted) {
+    uiModule.showError(`Reordered ${ok}/${attempted} feeds — some failed to save`);
+  }
+  if (attempted > 0) {
+    _loadFeeds();
+  }
 }
 
 function _promptCreateGroup(parentId) {
@@ -490,6 +579,18 @@ function _promptRenameGroup(group) {
       _loadFeeds();
     } else {
       uiModule.showError(res.error || 'Failed to rename group');
+    }
+  });
+}
+
+function _promptDeleteGroup(group) {
+  if (!confirm(`Delete group "${group.name}"? Its feeds and sub-groups will move up to the parent group, not be deleted.`)) return;
+  _api(`/groups/${group.id}`, { method: 'DELETE' }).then(res => {
+    if (res.ok) {
+      if (_activeGroupId === group.id) _activeGroupId = null;
+      _loadFeeds();
+    } else {
+      uiModule.showError(res.error || 'Failed to delete group');
     }
   });
 }
@@ -563,16 +664,25 @@ function _renderCheckbox(feedId) {
   return `<input type="checkbox" class="rss-feed-checkbox" ${checked} />`;
 }
 
+// Favicon guesses (feed.image href, or a guessed /favicon.ico) can 404 —
+// onerror swaps to the letter-avatar fallback instead of a broken image icon.
+// Uses textContent (not innerHTML) so the initial is inserted safely.
+function _feedIconHtml(icon, title) {
+  const initial = (title || '?')[0].toUpperCase();
+  if (!icon) return initial;
+  return `<img src="${icon}" alt="" width="14" height="14" onerror="this.parentElement.textContent=${JSON.stringify(initial)};" />`;
+}
+
 function _feedItemHtml(f) {
   let icon = f.icon || '';
   if (!icon && f.site_url && f.site_url.includes('youtube.com')) {
     icon = 'https://www.youtube.com/favicon.ico';
   }
-  const initial = (f.title || '?')[0].toUpperCase();
-  return `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}">
+  return `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}" data-group-id="">
+    <span class="rss-feed-drag-handle" title="Drag to reorder or move to a group">${_DRAG_HANDLE_SVG}</span>
     ${_renderCheckbox(f.id)}
-    <span class="rss-feed-icon">${icon ? `<img src="${icon}" alt="" width="14" height="14" />` : initial}</span>
-    <span class="rss-feed-name">${f.title || 'Untitled'}</span>
+    <span class="rss-feed-icon">${_feedIconHtml(icon, f.title)}</span>
+    <span class="rss-feed-name" title="${_escapeHtml(f.title || 'Untitled')}">${f.title || 'Untitled'}</span>
     ${(f.unread || 0) > 0 ? `<span class="rss-unread-badge">${f.unread}</span>` : ''}
     <button class="rss-feed-delete" title="Delete feed">&times;</button>
   </div>`;
@@ -622,26 +732,37 @@ function _groupUnread(groupNode) {
 
 function _renderGroupTreeNode(node, depth) {
   const isCollapsed = _groupCollapsed.has(node.id);
-  const hasChildren = node.children.length > 0;
+  // A group's single-click toggle collapses whatever is nested under it —
+  // sub-groups AND/OR feeds — not just sub-groups, so the chevron needs to
+  // show whenever either is present. Previously only checked node.children
+  // (sub-groups), leaving groups with feeds-but-no-sub-groups (the common
+  // case) with no visible collapse affordance at all.
+  const hasChildren = node.children.length > 0 || node.feeds.length > 0;
   const gUnread = _groupUnread(node);
   const toggleIcon = hasChildren ? (isCollapsed ? '▶' : '▼') : '';
   const indent = depth * 16;
   const isActive = _activeGroupId === node.id && !_activeFeedId;
-  let html = `<div class="rss-group-header ${isActive ? 'active' : ''}" data-group-id="${node.id}" style="padding-left:${10 + indent}px">
+  let html = `<div class="rss-group-header ${depth === 0 ? 'rss-group-root' : ''} ${isActive ? 'active' : ''}" data-group-id="${node.id}" style="padding-left:${10 + indent}px">
     ${hasChildren ? `<span class="rss-group-toggle">${toggleIcon}</span>` : '<span class="rss-group-toggle"></span>'}
-    <span class="rss-group-name">${node.name}</span>
+    <span class="rss-group-name" title="${_escapeHtml(node.name)}">${node.name}</span>
     ${gUnread > 0 ? `<span class="rss-unread-badge">${gUnread}</span>` : ''}
     <span class="rss-group-actions">
       <button class="rss-group-add-sub" title="New sub-group">+</button>
       <button class="rss-group-rename" title="Rename group">✎</button>
+      <button class="rss-group-delete" title="Delete group">&times;</button>
     </span>
   </div>`;
   if (!isCollapsed) {
     for (const f of node.feeds) {
-      html += `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}" style="padding-left:${24 + indent}px">
+      let icon = f.icon || '';
+      if (!icon && f.site_url && f.site_url.includes('youtube.com')) {
+        icon = 'https://www.youtube.com/favicon.ico';
+      }
+      html += `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}" data-group-id="${node.id}" style="padding-left:${24 + indent}px">
+        <span class="rss-feed-drag-handle" title="Drag to reorder or move to a group">${_DRAG_HANDLE_SVG}</span>
         ${_renderCheckbox(f.id)}
-        <span class="rss-feed-icon">${f.icon ? `<img src="${f.icon}" alt="" width="14" height="14" />` : (f.title || '?')[0].toUpperCase()}</span>
-        <span class="rss-feed-name">${f.title || 'Untitled'}</span>
+        <span class="rss-feed-icon">${_feedIconHtml(icon, f.title)}</span>
+        <span class="rss-feed-name" title="${_escapeHtml(f.title || 'Untitled')}">${f.title || 'Untitled'}</span>
         ${(f.unread || 0) > 0 ? `<span class="rss-unread-badge">${f.unread}</span>` : ''}
         <button class="rss-feed-delete" title="Delete feed">&times;</button>
       </div>`;
