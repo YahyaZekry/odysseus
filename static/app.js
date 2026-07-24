@@ -2652,9 +2652,11 @@ function initializeEventListeners() {
     'sessions-section':    '#sessions-section',
     'email-section':       '#email-section',
     'models-section':      '#models-section',
-    'tools-section':       '#tools-section',
+    'ai-tools-section':    '#ai-tools-section',
+    'personal-section':    '#personal-section',
+    'appearance-section':  '#appearance-section',
     // Per-tool visibility — fine-grained control over which entries show
-    // inside the Tools section in the sidebar.
+    // inside the AI & Knowledge / Personal / Appearance sections in the sidebar.
     'tool-calendar':       '#tool-calendar-btn',
     'tool-compare':        '#tool-compare-btn',
     'tool-cookbook':       '#tool-cookbook-btn',

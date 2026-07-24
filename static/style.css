@@ -621,11 +621,18 @@ body.bg-pattern-sparkles {
     #sessions-section {
       margin-top: -1px;
     }
-    #tools-section {
+    #ai-tools-section, #personal-section, #appearance-section {
       margin-top: 1px;
     }
-    #tools-section .list-item {
+    #ai-tools-section .list-item, #personal-section .list-item, #appearance-section .list-item {
       padding: 8px 8px;
+    }
+    /* Email is nested inside #personal-section (see index.html) so it collapses
+       along with the rest of Personal, but keeps its own header row (compose
+       button, unread dot, click-to-open-inbox) unchanged — section-management.js
+       still special-cases #email-section by id and skips adding a chevron to it. */
+    #personal-section #email-section {
+      margin-bottom: 2px;
     }
     .sidebar.right-side .sidebar-header {
       justify-content: flex-start;
@@ -1181,17 +1188,23 @@ body.bg-pattern-sparkles {
     .section-header-flex::after { content: none; }
     .section-header-flex h4::before { content: none; }
 
-    /* Section title text — same font as .list-item .grow */
+    /* Section title text — previously identical to .list-item .grow (same
+       size/weight/color), which made section headers hard to visually
+       separate from the items under them when scanning the sidebar. Bumped
+       to bold + uppercase + letter-spaced — the same treatment already used
+       for .theme-adv-group-label elsewhere in this file (reusing its exact
+       0.04em letter-spacing value, not a new one) — so headers read as
+       headers regardless of theme/font. */
     .section-header-flex h4,
     .section-header-flex .section-title {
       flex: 1; cursor: pointer; user-select: none;
       display: flex; align-items: center; gap: 6px;
       margin: 0; padding: 0; border: none;
-      font-size: 10px; font-weight: 400; font-family: inherit;
+      font-size: 10px; font-weight: 700; font-family: inherit;
       /* 1.3 (not 1) so Fira Code's tall glyph box isn't vertically clipped in
          Chromium/Edge — mirrors the .list-item fix. The title is flex-centred
          in a fixed-height (29px) header, so this adds headroom without reflow. */
-      line-height: 1.3; letter-spacing: 0; text-transform: none;
+      line-height: 1.3; letter-spacing: 0.04em; text-transform: uppercase;
       color: var(--fg);
     }
     .section-icon,
