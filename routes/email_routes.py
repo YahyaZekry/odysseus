@@ -3201,11 +3201,49 @@ def setup_email_routes():
             logger.error(f"Failed to move email {uid} to {dest}: {e}")
             return {"success": False, "error": "Mail operation failed"}
 
+    def _list_folders_sync(account_id, owner):
+        """Sync IMAP work — call via asyncio.to_thread so the STATUS-per-folder
+        loop below (needed for unread counts) doesn't block the event loop.
+        """
+        with _imap(account_id, owner=owner) as conn:
+            status, folders = conn.list()
+            result = []
+            for f in folders:
+                decoded = f.decode() if isinstance(f, bytes) else f
+                match = re.search(r'"([^"]*)"$|(\S+)$', decoded)
+                if match:
+                    name = match.group(1) or match.group(2)
+                    result.append(name)
+            # Per-folder unread counts via STATUS (UNSEEN) — a distinct IMAP
+            # command from SELECT that returns the count directly without
+            # selecting the mailbox. SELECT/EXAMINE only mandate EXISTS, not
+            # an unread count (confirmed against imaplib + this file's own
+            # unread-state endpoint, which needs a separate SEARCH UNSEEN
+            # after SELECT when it wants a live count) — STATUS is the actual
+            # cheap primitive for this. \Noselect container folders (e.g.
+            # Gmail's "[Gmail]" itself) will fail STATUS; skip them silently,
+            # badge is just omitted for those.
+            unread_counts = {}
+            for name in result:
+                try:
+                    st, data = conn.status(_q(name), '(UNSEEN)')
+                    if st == "OK" and data and data[0]:
+                        m = re.search(rb'UNSEEN\s+(\d+)', data[0])
+                        if m:
+                            unread_counts[name] = int(m.group(1))
+                except Exception:
+                    pass
+        return result, unread_counts
+
     @router.get("/folders")
     async def list_folders(account_id: str | None = Query(None), owner: str = Depends(require_owner)):
-        """List IMAP folders."""
+        """List IMAP folders, with a per-folder unread count."""
         if _fixture_email_enabled():
-            return {"folders": ["INBOX", "Archive", "Sent"], "sync": {"source": "fixture"}}
+            return {
+                "folders": ["INBOX", "Archive", "Sent"],
+                "unread_counts": {"INBOX": 0, "Archive": 0, "Sent": 0},
+                "sync": {"source": "fixture"},
+            }
         cached = _folder_cache_get(account_id, owner)
         if cached is not None:
             payload = dict(cached)
@@ -3214,21 +3252,17 @@ def setup_email_routes():
             payload["sync"] = sync_meta
             return payload
         try:
-            with _imap(account_id, owner=owner) as conn:
-                status, folders = conn.list()
-            result = []
-            for f in folders:
-                decoded = f.decode() if isinstance(f, bytes) else f
-                match = re.search(r'"([^"]*)"$|(\S+)$', decoded)
-                if match:
-                    name = match.group(1) or match.group(2)
-                    result.append(name)
-            payload = {"folders": result, "sync": {"source": "imap", "updated_at": datetime.utcnow().isoformat() + "Z"}}
+            result, unread_counts = await asyncio.to_thread(_list_folders_sync, account_id, owner)
+            payload = {
+                "folders": result,
+                "unread_counts": unread_counts,
+                "sync": {"source": "imap", "updated_at": datetime.utcnow().isoformat() + "Z"},
+            }
             _folder_cache_put(account_id, owner, payload)
             return payload
         except Exception as e:
             logger.error(f"list_folders failed: {e}")
-            return {"folders": [], "error": "Mail operation failed"}
+            return {"folders": [], "unread_counts": {}, "error": "Mail operation failed"}
 
     @router.post("/mark-answered/{uid}")
     async def mark_answered(uid: str, folder: str = Query("INBOX"), account_id: str | None = Query(None), owner: str = Depends(require_owner)):
