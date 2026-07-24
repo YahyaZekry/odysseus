@@ -6,13 +6,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=frieso
-WorkingDirectory=/home/frieso/odysseus
-ExecStart=/home/frieso/odysseus/venv/bin/uvicorn app:app --port 24950 --host 127.0.0.1
+# CHANGE THESE to match your user and install path:
+User=YOURUSER
+WorkingDirectory=/home/YOURUSER/odysseus
+ExecStart=/home/YOURUSER/odysseus/venv/bin/uvicorn app:app --port 24950 --host 127.0.0.1
 Environment=APP_PORT=24950
 Restart=always
 RestartSec=3
-EnvironmentFile=-/home/frieso/odysseus/.env
+EnvironmentFile=-/home/YOURUSER/odysseus/.env
 
 [Install]
 WantedBy=multi-user.target
