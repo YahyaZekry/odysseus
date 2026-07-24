@@ -1,11 +1,11 @@
 # Roadmap
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-20
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-24
 > Forward-looking only. Check this before starting any task — know what's in flight.
 
 ## Current Goal
 
-`dev` is now in sync with upstream (merged 2026-07-19, see [[sessions]] and [[history]]). No standing merge work — next up is picking from the backlog below, or whatever the user directs.
+Sidebar categorization (AI & Knowledge / Personal / Appearance) landed and is committed (`b205f82`). The Email 3-pane webmail redesign (folder sidebar + persistent list + persistent reading pane, collapsible/resizable) is built, verified live, and committed+pushed (`236ef91`). See Active TODOs below for what's still open (installing the systemd service, the RSS feature-proposal issue). See [[sessions]] and [[history]] for the full write-up.
 
 ---
 
@@ -85,3 +85,5 @@
 ## Active TODOs
 
 - [ ] Confirm `pip-audit`/Trivy findings aren't silently ignored — both are advisory-only in CI (see [[systems]] Security CI), so nothing blocks on them today. *(added 2026-07-19)*
+- [ ] **User needs to run `./install-service.sh` themselves** to actually install the "always on" systemd service (now executable — see [[history]]) — requires sudo, left for the user to run, not yet confirmed done. *(added 2026-07-24)*
+- [ ] GitHub issue [#5688](https://github.com/odysseus-dev/odysseus/issues/5688) — proposed the RSS backlog batch as a new feature per `CONTRIBUTING.md`'s no-bulk-agent-PR policy (one issue, not multiple PRs). Awaiting maintainer response before opening any PR. *(added 2026-07-24)*

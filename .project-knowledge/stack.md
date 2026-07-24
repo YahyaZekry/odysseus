@@ -1,6 +1,6 @@
 # Stack
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-24
 
 ## Tech Stack
 
@@ -36,7 +36,8 @@
 | `python setup.py` | First-time setup (creates admin, initializes DB) |
 | `powershell -ExecutionPolicy Bypass -File .\launch-windows.ps1` | Windows one-command launcher |
 | `./build-macos-app.sh` | Build macOS app bundle |
-| `./install-service.sh` | Install systemd service |
+| `./install-service.sh` | Install systemd service (fills `odysseus-ui.service` template, `chmod +x` — was missing execute bit, fixed 2026-07-24) |
+| `./scripts/run-odysseus.sh` | Convenience launcher — runs the app on a fixed port (24950) with `APP_PORT` set, for pairing with the systemd service *(added 2026-07-24)* |
 | `pip install -r requirements.txt` | Install Python dependencies |
 | `pip install -r requirements-optional.txt` | Install optional dependencies |
 | `uv pip compile requirements.txt -o requirements.lock && uv pip sync requirements.lock` | Optional: pin a reproducible, platform-specific lockfile (gitignored) — `requirements.txt` is intentionally unpinned |

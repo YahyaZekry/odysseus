@@ -1,6 +1,6 @@
 # Project Structure
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-19 (read [[roadmap]] for the full refactor-slice plan and its open questions)
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-24 (read [[roadmap]] for the full refactor-slice plan and its open questions)
 
 ## Structural Changes Since 2026-06-25 (upstream merge)
 
@@ -209,6 +209,7 @@ Several former monoliths were split into domain packages upstream. Old entry poi
 │   ├── check-docker-amd-gpu.sh # AMD GPU Docker diagnostic
 │   ├── odysseus-mail         # CLI mail poller (for cron)
 │   ├── hf_download.py        # HuggingFace model download helper
+│   ├── run-odysseus.sh       # Fixed-port (24950) launcher, pairs with the systemd service (added 2026-07-24)
 │   └── ...
 ├── integrations/             # External integration plugins
 │   ├── claude/               # Claude Code integration (SKILL.md + API script)
