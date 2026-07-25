@@ -1230,9 +1230,9 @@ export function openEmailLibrary(opts = {}) {
           <div class="email-pane-folders">
           <div class="email-accounts-row">
             <div id="email-lib-accounts" style="display:flex;gap:4px;flex:1;min-width:0;"></div>
-            <button class="memory-toolbar-btn email-compose-jiggle" id="email-lib-compose-btn">
+            <button class="memory-toolbar-btn email-compose-jiggle" id="email-lib-compose-btn" title="Compose email">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px;"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              New
+              <span class="email-compose-label">New</span>
             </button>
           </div>
           <div class="section">
@@ -2263,15 +2263,16 @@ function _renderFolderSidebar() {
   const counts = state._libUnreadCounts || {};
   const rowHtml = (f) => {
     const count = counts[f] || 0;
-    return `<div class="list-item${f === state._libFolder ? ' active' : ''}" data-folder="${_esc(f)}">
+    const label = folderDisplayName(f);
+    return `<div class="list-item${f === state._libFolder ? ' active' : ''}" data-folder="${_esc(f)}" title="${_esc(label)}${count > 0 ? ` (${count} unread)` : ''}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6;">${_folderIconSvg(f)}</svg>
-      <span class="grow">${_esc(folderDisplayName(f))}</span>
+      <span class="grow">${_esc(label)}</span>
       ${count > 0 ? `<span class="email-folder-badge">${count > 999 ? '999+' : count}</span>` : ''}
     </div>`;
   };
   const schedActive = state._libFolder === '__scheduled__';
   host.innerHTML = [...priority, ...others].map(rowHtml).join('') + `
-    <div class="list-item${schedActive ? ' active' : ''}" data-folder="__scheduled__">
+    <div class="list-item${schedActive ? ' active' : ''}" data-folder="__scheduled__" title="Scheduled">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <span class="grow">Scheduled</span>
     </div>`;

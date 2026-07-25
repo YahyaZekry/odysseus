@@ -1289,6 +1289,108 @@ body.bg-pattern-sparkles {
         top: -2px !important;
       }
     }
+
+    /* New-mail pulse banner (static/js/emailInbox.js, _showNewMailPulseBanner)
+       — fired at most once per newly-arrived UID, skipped while the Email
+       inbox is already open. Sits below .toast's top-right slot (16px) so
+       the two don't stack directly on top of each other if both fire close
+       together. */
+    .mail-pulse-banner {
+      position: fixed;
+      top: 60px;
+      right: 16px;
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: min(340px, calc(100vw - 32px));
+      padding: 10px 12px;
+      background: var(--panel);
+      border: 1px solid color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateX(24px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .mail-pulse-banner.mail-pulse-visible {
+      opacity: 1;
+      transform: translateX(0);
+      animation: mail-pulse-glow 1.8s ease-in-out 3;
+    }
+    @keyframes mail-pulse-glow {
+      0%, 100% {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
+                    0 0 0 0 color-mix(in srgb, var(--accent, var(--red)) 45%, transparent);
+      }
+      50% {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
+                    0 0 14px 3px color-mix(in srgb, var(--accent, var(--red)) 55%, transparent);
+      }
+    }
+    .mail-pulse-avatar {
+      flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .mail-pulse-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .mail-pulse-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent, var(--red));
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .mail-pulse-sub {
+      font-size: 12px;
+      color: var(--fg);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mail-pulse-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--fg);
+      opacity: 0.5;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mail-pulse-close:hover {
+      opacity: 1;
+      background: color-mix(in srgb, var(--fg) 10%, transparent);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mail-pulse-banner.mail-pulse-visible { animation: none; }
+    }
+    @media (max-width: 768px) {
+      .mail-pulse-banner {
+        left: 12px;
+        right: 12px;
+        max-width: none;
+        top: 56px;
+      }
+    }
+
     #sidebar-new-chat-btn svg {
       transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
@@ -6861,8 +6963,17 @@ pre { background: var(--code-bg, var(--hl-bg, #282c34)) !important; }
     .theme-import-actions { display: flex; gap: 6px; margin-top: 4px; }
     .theme-import-actions.hidden { display: none; }
     /* Font & Density */
-    .theme-fd-row { display: flex; gap: 8px; margin-bottom: 8px; }
-    .theme-fd-group { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    /* flex-wrap: the Font/Layout row packs 5 groups (Font, Density, Text
+       size, Frosted, Neon glow) — each select's content sets a min-width
+       flex can't shrink below by default, so without wrap the last two
+       (the toggle switches) got pushed past the card's right edge instead
+       of shrinking. Wrapping lets them drop to a second line instead. */
+    .theme-fd-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .theme-fd-group { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    /* Toggle-switch groups are narrow by nature — let them size to their
+       content (label + switch) instead of stretching to an equal 1/5th
+       share when they wrap onto their own line. */
+    #theme-frosted-group, #theme-neon-group { flex: 0 0 auto; }
     .theme-fd-label { font-size: 12px; font-weight: 500; color: var(--fg); opacity: 0.6; }
     .theme-fd-select {
       padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
@@ -32183,13 +32294,49 @@ body.doc-find-active mark.doc-find-mark.current {
   box-sizing: border-box;
   transition: width 0.15s ease, padding 0.15s ease;
 }
+/* Collapsed folders pane shrinks to an icon-only rail (matching the main
+   app sidebar's own collapse-to-icons behavior) rather than disappearing
+   entirely — folder icons + active state + unread dots stay reachable,
+   just without labels/counts/section header text. */
 .email-3pane.email-folders-collapsed .email-pane-folders {
   /* !important: beats the inline width the drag-resize handle (emailLibrary.js)
      may have set from a saved custom width — collapse must always win. */
-  width: 0 !important;
-  padding-left: 0;
-  padding-right: 0;
-  border-right: none;
+  width: 40px !important;
+  padding: 6px 2px;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders #email-lib-accounts {
+  display: none;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders .email-accounts-row {
+  justify-content: center;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders .email-compose-label {
+  display: none;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders #email-lib-compose-btn svg {
+  margin-right: 0;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders .section-header-flex {
+  display: none;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders .list-item {
+  justify-content: center;
+  padding: 8px 2px;
+  position: relative;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders .list-item .grow {
+  display: none;
+}
+.email-3pane.email-folders-collapsed .email-pane-folders .email-folder-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 7px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  font-size: 0;
+  border-radius: 50%;
 }
 /* Thin draggable dividers between panes — desktop only (hidden on the
    mobile single-pane stack below). Widening the hit area past the visible
