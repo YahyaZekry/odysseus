@@ -1,6 +1,6 @@
 # Systems
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-24
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-25
 
 | System | Status | Details |
 |--------|--------|---------|
@@ -11,7 +11,7 @@
 | Agent | ✅ Active | Tool-using agent with MCP, web, files, shell, memory, skills |
 | Memory / Skills | ✅ Active | Persistent memory + skills, vector + keyword retrieval, ChromaDB + fastembed |
 | RAG (Personal Docs) | ✅ Active | ChromaDB-backed semantic document search |
-| Email | ✅ Active | IMAP/SMTP multi-account, AI triage, auto-reply, urgency detection. Frontend redesigned to a 3-pane webmail layout (folder sidebar / message list / reading pane) 2026-07-24, see [[features]] and [[history]] |
+| Email | ✅ Active | IMAP/SMTP multi-account, AI triage, auto-reply, urgency detection. Frontend redesigned to a 3-pane webmail layout (folder sidebar / message list / reading pane) 2026-07-24; new-mail pulse banner added 2026-07-25 (`GET /api/email/unread-state`'s `latest` field). See [[features]] and [[history]] |
 | Calendar | ✅ Active | CalDAV sync, local-first, .ics import/export |
 | Notes/Tasks | ✅ Active | Notes with reminders, checklists, cron-style scheduled tasks |
 | Cookbook (Model Mgmt) | ✅ Active | Hardware scan, model download, vLLM/llama.cpp serving |
