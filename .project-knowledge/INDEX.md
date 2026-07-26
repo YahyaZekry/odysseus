@@ -1,9 +1,9 @@
 # Odysseus — Knowledge Index
 
-> Last updated: 2026-07-25
+> Last updated: 2026-07-26
 > Status: Active
 > Stack: FastAPI (Python 3.11+) + SQLite/SQLAlchemy + Vanilla JS SPA + ChromaDB
-> Current goal: Sidebar restructuring and the Email 3-pane redesign are committed and pushed (`b205f82`, `236ef91`, `19aeec5`). Follow-up polish landed 2026-07-25: Email folder-sidebar collapse now shows an icon rail (was hiding entirely), fixed a Theme Customize-tab layout overflow, and added a new-mail pulse banner. Systemd service confirmed installed/enabled/running. See [[sessions]] for details.
+> Current goal: Sidebar restructuring and the Email 3-pane redesign are committed and pushed (`b205f82`, `236ef91`, `19aeec5`). Two follow-up polish rounds landed since: 2026-07-25 (icon-rail collapse, Theme layout overflow, new-mail pulse banner) and 2026-07-26 (folder-badge readability, modals now respect the Font setting, reader action row consolidated to 4 icon-only buttons with Reply/Reply All/Reply with AI folded into one dropdown). Systemd service confirmed installed/enabled/running. See [[sessions]] for details.
 
 ## What This Project Does
 A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that runs on local hardware. Provides chat with any OpenAI-compatible LLM, an agent with tools (files, shell, web, MCP, memory, skills), deep research, email/calendar/contacts sync, notes/tasks, document editing, image generation, model management ("Cookbook"), RSS feed reader, and more. Privacy-first, local-first.

@@ -1,11 +1,11 @@
 # Roadmap
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-25
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-07-26
 > Forward-looking only. Check this before starting any task — know what's in flight.
 
 ## Current Goal
 
-Sidebar categorization and the Email 3-pane redesign are committed and pushed (`b205f82`, `236ef91`). Follow-up polish round done 2026-07-25: Email folder-sidebar collapse now shows an icon rail instead of hiding entirely, fixed a Theme Customize-tab layout overflow (Neon Glow toggle), and added a new-mail pulse banner. The systemd service is confirmed installed, enabled, and running (`systemctl status odysseus-ui`). See Active TODOs below for what's still open (the RSS feature-proposal issue). See [[sessions]] and [[history]] for the full write-up.
+Sidebar categorization and the Email 3-pane redesign are committed and pushed (`b205f82`, `236ef91`). Two follow-up polish rounds since: 2026-07-25 (icon-rail collapse, Theme layout overflow, new-mail pulse banner) and 2026-07-26 (folder-badge readability, modal font-family, reader action row down to 4 icon-only buttons with a consolidated Reply dropdown). The systemd service is confirmed installed, enabled, and running (`systemctl status odysseus-ui`). See Active TODOs below for what's still open. See [[sessions]] and [[history]] for the full write-up.
 
 ---
 
@@ -86,3 +86,4 @@ Sidebar categorization and the Email 3-pane redesign are committed and pushed (`
 
 - [ ] Confirm `pip-audit`/Trivy findings aren't silently ignored — both are advisory-only in CI (see [[systems]] Security CI), so nothing blocks on them today. *(added 2026-07-19)*
 - [ ] GitHub issue [#5688](https://github.com/odysseus-dev/odysseus/issues/5688) — proposed the RSS backlog batch as a new feature per `CONTRIBUTING.md`'s no-bulk-agent-PR policy (one issue, not multiple PRs). Awaiting maintainer response before opening any PR. *(added 2026-07-24)*
+- [ ] **Decide whether to unify the 3 other email-reader header blocks** (`emailLibrary.js`) with the 2026-07-26 icon-only/consolidated-Reply-dropdown redesign — one is confirmed-dead `_toggleCardPreview`-era code (safe to just delete), the other two are the "open email in a new tab" and "open in a new window" views, which still show the old 6-separate-icon layout. Left alone since the user's feedback was specifically about the 3-pane reading pane. *(added 2026-07-26)*
