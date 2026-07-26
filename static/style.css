@@ -5440,8 +5440,13 @@ body.bg-pattern-sparkles {
       border:1px solid var(--border);
       width:min(520px, 92vw); max-height:85vh; padding:10px;
       box-sizing:border-box; font-size:14px;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      letter-spacing: -0.015em;
+      /* Was hardcoded to Inter regardless of the Theme > Customize Font
+         setting — every modal ignored it while the rest of the app (body,
+         style.css:105) honored it. Match that fallback chain so modals
+         follow the same font choice. Dropped the Inter-tuned negative
+         letter-spacing along with it — it doesn't apply to the monospace
+         default and body doesn't use it either. */
+      font-family: var(--font-family, 'Fira Code', monospace);
       display:flex; flex-direction:column;
       position:relative;
       overflow-y:auto;
@@ -30360,61 +30365,58 @@ button .spinner-whirlpool {
 .email-reader-meta .recipient-chips {
   min-width: 60px;
 }
-/* Medium reader widths: cap the cluster at 3 icons per row so it
-   never wraps past 2 rows. min-width forces the cluster to reserve
-   enough room for 3 icons in a row — without it, grid col 2 could
-   shrink below the cap and the cluster fanned out into 4+ short
-   rows. */
+/* Medium reader widths: the old fix here tried to fit icon+label tiles
+   3-per-row (capped width, ellipsis on overflow) — even once the text
+   fit, 6 bordered icon+label tiles wrapped to 2 rows read as a cramped
+   block taking way more space than 6 simple actions warrant. Dropping
+   the labels and going icon-only (title="..." tooltip carries the name,
+   same as the "More" button already did) fits all 6 in a single row,
+   cutting the cluster's height by more than half. */
 @container emailreader (max-width: 450px) {
   .email-reader-meta > .email-reader-actions-inline {
-    /* 3 icons (48px each) + 2 gaps (4px each) = 152px exact. Adding
-       6px slack so subpixel rounding can't tip a row from 3 to 2
-       icons and fan the cluster into a 3rd row. */
-    min-width: 158px;
-    max-width: 158px;
+    /* 6 icons (30px each) + 5 gaps (4px each) = 200px exact + 8px slack
+       so subpixel rounding can't wrap a 7th... icon onto its own row
+       (there are only 6, but the margin keeps this robust if a 7th
+       action is ever added). */
+    min-width: 208px;
+    max-width: 208px;
+    flex-wrap: nowrap;
     /* Solid background so the email body content behind the cluster
-       doesn't peek through the gaps between icons or the slack on
-       the right edge when the cluster's wrapped to 2 rows. */
+       doesn't peek through the gaps between icons. */
     background: var(--bg);
   }
   .email-reader-meta > .email-reader-actions-inline .memory-toolbar-btn.reader-icon-btn {
-    width: 48px;
-    min-width: 48px;
-    max-width: 48px;
-    height: 40px;
-    padding-left: 0;
-    padding-right: 0;
-    gap: 2px;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    height: 30px;
+    padding: 0;
   }
   .email-reader-meta > .email-reader-actions-inline .reader-btn-label {
-    display: block;
-    max-width: 44px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 8px;
-    line-height: 1;
+    /* Name still reachable via the button's title="..." tooltip. */
+    display: none;
   }
-  /* Tighten the right-side padding now that the cluster is 158px
+  /* Tighten the right-side padding now that the cluster is 208px
      wide (instead of the ~308 wide 1-row layout). */
   .email-reader-meta-row.email-reader-meta-from,
   .email-reader-meta > .email-reader-meta-details {
-    padding-right: 170px;
+    padding-right: 220px;
   }
-  /* Cluster wrapped to 2 rows (44px + 4 gap + 44px = 92px) sits
-     absolute above the From baseline. Set min-height on the meta
-     (a descendant of the container, more reliable than targeting
-     the container itself) so the header grows enough to contain
-     the cluster + 4px of breathing room between the cluster's
-     bottom and the header bottom. */
+  /* Single-row 30px-tall icon cluster sits absolute above the From
+     baseline — needs far less headroom than the old 2-row (92px)
+     stacked icon+label tiles. Set min-height on the meta (a descendant
+     of the container, more reliable than targeting the container
+     itself) so the header grows enough to contain the cluster + a
+     little breathing room. */
   .email-reader-meta {
-    min-height: 96px;
+    min-height: 40px;
   }
 }
 /* Very narrow reader: once the chip span has shrunk to its ~4
    character min, the cluster snaps to absolute overlay with a soft
    shadow so it visually floats above the truncated chip. */
 @container emailreader (max-width: 380px) {
-  /* Pane too narrow even for 158px of right-side reservation — kill
+  /* Pane too narrow even for 208px of right-side reservation — kill
      the padding so chips use the full width, and let the cluster
      overlay via z-index + shadow. */
   .email-reader-meta-row.email-reader-meta-from,
@@ -30426,10 +30428,10 @@ button .spinner-whirlpool {
        cluster doesn't slide ~4px DOWN when it transitions into
        overlay mode. */
     /* margin-top stays inherited at -7px from the base rule. */
-    /* 158px content + 22px padding-left so the inner row still fits
-       3 icons cleanly. */
-    min-width: 180px;
-    max-width: 180px;
+    /* 208px content + 22px padding-left so the inner row still fits
+       6 icons cleanly. */
+    min-width: 230px;
+    max-width: 230px;
     background: linear-gradient(to right, transparent 0, var(--bg) 18px);
     padding-left: 22px;
     /* Soft shadow on the left edge so the overlap reads as the
@@ -32374,7 +32376,13 @@ body.doc-find-active mark.doc-find-mark.current {
   cursor: pointer;
   gap: 8px;
 }
-.email-folder-badge {
+/* .list-item .email-folder-badge (not .email-folder-badge alone) — the
+   generic ".list-item span { color: var(--fg); font-size: 9.75px; }" rule
+   (style.css:1916) has higher specificity than a bare single-class
+   selector and was silently winning, rendering the badge number in --fg
+   instead of --bg. On the navyseal theme that's a light color on top of
+   --red's own light cyan background — numbers were essentially invisible. */
+.list-item .email-folder-badge {
   flex-shrink: 0;
   min-width: 16px;
   padding: 1px 5px;
@@ -32697,6 +32705,24 @@ body.doc-find-active mark.doc-find-mark.current {
   color: inherit;
 }
 .memory-toolbar-btn.reader-icon-btn[data-act="more"] svg { fill: currentColor; }
+/* Reply/Reply All/Reply with AI folded into one dropdown off this button
+   (_showReplyMenu) — small corner caret signals it opens a menu instead
+   of replying immediately. */
+.reader-reply-btn {
+  position: relative;
+}
+.reader-reply-btn::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 3px solid currentColor;
+  opacity: 0.55;
+}
 .memory-toolbar-btn.reader-icon-btn.reader-more-active {
   background: color-mix(in srgb, var(--fg) 12%, transparent);
   border-color: color-mix(in srgb, var(--fg) 24%, transparent);
