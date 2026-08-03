@@ -11,7 +11,7 @@
 | Agent | ✅ Active | Tool-using agent with MCP, web, files, shell, memory, skills. Runs on the host as the real user (not a sandbox). `sudo` is supported: the bash tool prompts the browser for a password (`src/sudo_auth.py` + `/api/agent/sudo/*` + `static/js/sudoPrompt.js`), held in memory only. See [[history]] |
 | Memory / Skills | ✅ Active | Persistent memory + skills, vector + keyword retrieval, ChromaDB + fastembed |
 | RAG (Personal Docs) | ✅ Active | ChromaDB-backed semantic document search |
-| Email | ✅ Active | IMAP/SMTP multi-account, AI triage, auto-reply, urgency detection. Frontend redesigned to a 3-pane webmail layout (folder sidebar / message list / reading pane) 2026-07-24; new-mail pulse banner added 2026-07-25 (`GET /api/email/unread-state`'s `latest` field). See [[features]] and [[history]] |
+| Email | ✅ Active | IMAP/SMTP multi-account, AI triage, auto-reply, urgency detection. Frontend redesigned to a 3-pane webmail layout (folder sidebar / message list / reading pane) 2026-07-24; new-mail pulse banner added 2026-07-25. Real-time push added 2026-08-02: `src/email_notify.py` background poller + `GET /api/email/notify/stream` (SSE) nudges the browser on new mail instead of relying on client polling; numbered unread badges (sidebar + collapsed icon-rail), notification chime with mute toggle. See [[features]] and [[history]] |
 | Calendar | ✅ Active | CalDAV sync, local-first, .ics import/export |
 | Notes/Tasks | ✅ Active | Notes with reminders, checklists, cron-style scheduled tasks |
 | Cookbook (Model Mgmt) | ✅ Active | Hardware scan, model download, vLLM/llama.cpp serving |
