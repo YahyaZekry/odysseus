@@ -795,6 +795,31 @@ body.bg-pattern-sparkles {
       0%, 100% { box-shadow: 0 0 0 1px var(--bg), 0 0 0 0 color-mix(in srgb, var(--red) 50%, transparent); }
       50% { box-shadow: 0 0 0 1px var(--bg), 0 0 0 4px color-mix(in srgb, var(--red) 15%, transparent); }
     }
+    /* Collapsed icon-rail's Email button — same numbered-badge treatment as
+       rail-notes-badge above, so unread mail is visible when the sidebar is
+       collapsed to icons only, not just in the expanded Email section header. */
+    .rail-email-badge {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 3px;
+      border-radius: 7px;
+      background: var(--red);
+      color: var(--bg);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 14px;
+      text-align: center;
+      box-sizing: border-box;
+      pointer-events: none;
+      box-shadow: 0 0 0 1px var(--bg);
+      animation: rail-notes-pulse 1.6s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .rail-email-badge { animation: none; }
+    }
     /* Main sidebar notes button — dot when a reminder has fired */
     .tool-notes-dot {
       display: inline-block;
@@ -1274,6 +1299,25 @@ body.bg-pattern-sparkles {
     @media (prefers-reduced-motion: reduce) {
       #email-unread-dot.sidebar-notif-dot { animation: none; }
     }
+    /* Numbered variant: JS adds .has-count + sets textContent to the unread
+       count once it's known. Grows from a plain 6px dot into a small pill so
+       short counts ("3") and longer ones ("42") both fit without clipping.
+       This is also the landing spot the pulse banner collapses toward (see
+       .mail-pulse-collapsing in emailInbox.js). */
+    #email-unread-dot.sidebar-notif-dot.has-count {
+      width: auto;
+      height: 15px;
+      min-width: 15px;
+      padding: 0 4px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--bg, #0a0a0a);
+    }
     @media (max-width: 768px) {
       /* Nudge the sidebar notification dot up 1px on mobile so it lines
          up with the bigger section titles. vertical-align:middle drifts
@@ -1327,6 +1371,21 @@ body.bg-pattern-sparkles {
       50% {
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
                     0 0 14px 3px color-mix(in srgb, var(--accent, var(--red)) 55%, transparent);
+      }
+    }
+    /* Dismiss animation: shrinks/moves toward the sidebar unread badge
+       (JS sets --collapse-x/--collapse-y to the measured offset) instead of
+       fading in place, so the count visibly lands somewhere. */
+    .mail-pulse-banner.mail-pulse-collapsing {
+      transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.38s ease;
+      transform: translate(var(--collapse-x, 0), var(--collapse-y, 0)) scale(0.15);
+      opacity: 0;
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mail-pulse-banner.mail-pulse-collapsing {
+        transition: opacity 0.2s ease;
+        transform: none;
       }
     }
     .mail-pulse-avatar {

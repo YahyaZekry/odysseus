@@ -1162,6 +1162,19 @@ export function initEmailLibrary(config) {
 
 export function isOpen() { return state._libOpen; }
 
+// Called by emailInbox.js's new-mail push listener when the library is
+// already open — folder badges/unread pill always refresh; the visible
+// email list only refreshes if it's actually showing the affected folder
+// (avoid yanking someone's place if they're browsing a different folder).
+export function refreshLiveOnNewMail(folder) {
+  if (!state._libOpen) return;
+  _loadFolders();
+  _refreshUnreadBadge();
+  if (state._libFolder === folder && state._libOffset === 0) {
+    _loadEmails({ force: true, useCache: false });
+  }
+}
+
 export function openEmailLibrary(opts = {}) {
   // Force-clean any stale state from previous attempts
   const existing = document.getElementById('email-lib-modal');

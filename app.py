@@ -183,6 +183,7 @@ _TIMEOUT_EXEMPT_PREFIXES = (
     "/api/memory/audit",    # retains own 120s LLM inactivity timeout
     "/api/feeds/articles",  # AI summary / full-content are one-shot LLM calls, not streaming
     "/api/feeds/groups",    # group AI summary — same as above
+    "/api/email/notify/stream",  # SSE — long-lived by design, would 504 every 45s otherwise
 )
 
 
@@ -700,6 +701,10 @@ app.include_router(setup_search_routes(config))
 # Sudo prompt (agent shell commands that need root)
 from routes.sudo_routes import setup_sudo_routes
 app.include_router(setup_sudo_routes())
+
+# Real-time new-mail push (SSE)
+from routes.email_notify_routes import setup_email_notify_routes
+app.include_router(setup_email_notify_routes())
 
 # Presets
 from routes.preset_routes import setup_preset_routes

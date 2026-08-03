@@ -5,7 +5,7 @@
 
 import spinnerModule from './spinner.js';
 import sessionModule from './sessions.js';
-import { initEmailLibrary, openEmailLibrary, closeEmailLibrary, isOpen as isLibOpen } from './emailLibrary.js';
+import { initEmailLibrary, openEmailLibrary, closeEmailLibrary, isOpen as isLibOpen, refreshLiveOnNewMail } from './emailLibrary.js';
 import * as Modals from './modalManager.js';
 import { applyEdgeDock } from './modalSnap.js';
 import { buildReplyAllCc, extractEmail } from './emailLibrary/replyRecipients.js';
@@ -296,6 +296,7 @@ function _bindEvents() {
   // only when the inbox is actually opened.
   setTimeout(_refreshUnreadCount, 8000);
   setInterval(_refreshUnreadCount, 60000);
+  _connectMailNotifyStream();
 
   // Deep-link: #email=<folder>:<uid> opens the library and expands that card
   _maybeOpenFromHash();
@@ -331,13 +332,75 @@ function _dismissMailPulseBanner(banner) {
   if (!banner || banner._dismissed) return;
   banner._dismissed = true;
   clearTimeout(banner._timer);
+
+  // Collapse toward the sidebar unread badge instead of just fading in
+  // place, so the count visibly "lands" somewhere rather than vanishing.
+  // Falls back to a plain fade if the badge isn't visible/measurable for
+  // any reason (dot hidden, sidebar collapsed, etc).
+  const dot = document.getElementById('email-unread-dot');
+  const dotVisible = dot && dot.style.display !== 'none' && dot.offsetParent !== null;
+  if (dotVisible) {
+    const from = banner.getBoundingClientRect();
+    const to = dot.getBoundingClientRect();
+    const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+    const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+    banner.style.setProperty('--collapse-x', `${dx}px`);
+    banner.style.setProperty('--collapse-y', `${dy}px`);
+    banner.classList.add('mail-pulse-collapsing');
+    setTimeout(() => banner.remove(), 380);
+    return;
+  }
   banner.classList.remove('mail-pulse-visible');
   setTimeout(() => banner.remove(), 250);
 }
 
+// Cached so we don't hit /api/prefs on every single new-mail event. Fetched
+// once, lazily, on first need; the Settings toggle updates this directly so
+// a change takes effect immediately without a reload.
+let _mailSoundEnabled = null;
+export function setMailSoundEnabledCache(v) { _mailSoundEnabled = !!v; }
+
+let _audioCtx = null;
+
+function _playMailNotifySound() {
+  (async () => {
+    if (_mailSoundEnabled === null) {
+      try {
+        const r = await fetch(`${API_BASE}/api/prefs/email_notification_sound_enabled`, { credentials: 'same-origin' });
+        const d = r.ok ? await r.json() : {};
+        _mailSoundEnabled = d.value !== false;
+      } catch (_) {
+        _mailSoundEnabled = true;
+      }
+    }
+    if (!_mailSoundEnabled) return;
+    try {
+      if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_audioCtx.state === 'suspended') { try { await _audioCtx.resume(); } catch (_) {} }
+      // Two quick, soft tones (like a short doorbell) rather than one bare
+      // beep — reads as "notification" without being jarring.
+      const now = _audioCtx.currentTime;
+      [[880, 0], [1318.5, 0.09]].forEach(([freq, delay]) => {
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = now + delay;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.16, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+        osc.connect(gain).connect(_audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.24);
+      });
+    } catch (_) { /* AudioContext unavailable/blocked — sound is a nicety, never break the pulse over it */ }
+  })();
+}
+
 function _showNewMailPulseBanner(latest, unreadCount) {
   // Skip while the inbox is already open — its list/reader reflect new mail
-  // live, a banner stacked on top of it would just be noise.
+  // live now (see the notify-stream handler below), a banner stacked on top
+  // would just be noise on content the user's already looking at.
   if (isLibOpen()) return;
   document.querySelectorAll('.mail-pulse-banner').forEach(_dismissMailPulseBanner);
 
@@ -375,12 +438,31 @@ function _showNewMailPulseBanner(latest, unreadCount) {
   banner._timer = setTimeout(() => _dismissMailPulseBanner(banner), 8000);
 }
 
+// Collapsed icon-rail's Email button has no title text to attach a dot to
+// (unlike the expanded sidebar section header), so it gets its own small
+// numbered badge — same DOM-diffing approach as notes.js's rail-notes-badge.
+function _updateRailEmailBadge(shouldShow, unreadCount) {
+  const railBtn = document.getElementById('rail-email');
+  if (!railBtn) return;
+  let badge = railBtn.querySelector('.rail-email-badge');
+  if (shouldShow && unreadCount > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'rail-email-badge';
+      railBtn.appendChild(badge);
+    }
+    badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
 async function _refreshUnreadCount() {
   // Default the dot to hidden — only the verified "new mail above threshold"
   // path below should turn it on. Without this, a fetch error or a backend
   // returning malformed data left a stale dot from a previous account/session.
   const dot = document.getElementById('email-unread-dot');
-  if (dot && !dot._stickyState) dot.style.display = 'none';
+  if (dot && !dot._stickyState) { dot.style.display = 'none'; dot.classList.remove('has-count'); }
   try {
     // Parallel: cheap unread state + urgency state.
     const [stateRes, urgRes] = await Promise.all([
@@ -394,6 +476,8 @@ async function _refreshUnreadCount() {
     const unreadCount = Number(data.unread_count || 0);
     if (unreadCount <= 0) {
       dot.style.display = 'none';
+      dot.classList.remove('has-count');
+      _updateRailEmailBadge(false, 0);
       return;
     }
 
@@ -402,11 +486,21 @@ async function _refreshUnreadCount() {
     const maxUid = parseInt(data.max_uid || '0', 10) || 0;
 
     // Only show dot if there's a new email above the threshold
-    dot.style.display = maxUid > lastSeen ? '' : 'none';
+    const shouldShow = maxUid > lastSeen;
+    dot.style.display = shouldShow ? '' : 'none';
+    if (shouldShow) {
+      dot.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+      dot.classList.add('has-count');
+      dot.title = `${unreadCount} unread`;
+    } else {
+      dot.classList.remove('has-count');
+    }
+    _updateRailEmailBadge(shouldShow, unreadCount);
 
     if (maxUid > lastSeen && maxUid !== _lastAnnouncedMailUid) {
       _lastAnnouncedMailUid = maxUid;
       _showNewMailPulseBanner(data.latest, unreadCount);
+      _playMailNotifySound();
     }
 
     // Color the dot by urgency tier. Cache the per-uid map so the per-row
@@ -428,6 +522,31 @@ async function _refreshUnreadCount() {
   }
 }
 
+let _mailNotifySource = null;
+
+// Real-time push: server watches IMAP UIDNEXT server-side (src/email_notify.py)
+// and nudges over SSE the moment it changes, instead of waiting on the next
+// slow client poll. The nudge carries no message content — on receipt we just
+// re-run the existing fetch paths immediately, both for the sidebar dot/pulse
+// and (if the library happens to be open) the visible folder badges/list.
+// EventSource reconnects on its own on drop; the 60s poll above stays as a
+// silent fallback in case the stream is ever unavailable.
+function _connectMailNotifyStream() {
+  if (_mailNotifySource) return;
+  try {
+    _mailNotifySource = new EventSource(`${API_BASE}/api/email/notify/stream`);
+    _mailNotifySource.onmessage = (ev) => {
+      let data;
+      try { data = JSON.parse(ev.data); } catch (_) { return; }
+      if (data && data.type === 'new_mail') {
+        _refreshUnreadCount();
+        if (isLibOpen()) refreshLiveOnNewMail(data.folder || 'INBOX');
+      }
+    };
+    _mailNotifySource.onerror = () => { /* EventSource auto-retries; 60s poll covers the gap */ };
+  } catch (_) { /* SSE unavailable — 60s poll still covers it */ }
+}
+
 export function markInboxAsSeen() {
   // Called when the user opens the inbox popup — clears the notif dot
   try {
@@ -440,7 +559,8 @@ export function markInboxAsSeen() {
           localStorage.setItem('odysseus-email-last-seen-uid', String(maxUid));
         }
         const dot = document.getElementById('email-unread-dot');
-        if (dot) dot.style.display = 'none';
+        if (dot) { dot.style.display = 'none'; dot.classList.remove('has-count'); }
+        _updateRailEmailBadge(false, 0);
       })
       .catch(() => {});
   } catch (e) {}

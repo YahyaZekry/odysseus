@@ -2929,6 +2929,16 @@ async function initEmailAccountsSettings() {
       }
     });
   }
+  try {
+    const { syncPrefToggle } = await import('./memory.js');
+    await syncPrefToggle('set-email-notify-sound-toggle', 'email_notification_sound_enabled', 'New-mail sound on', 'New-mail sound off', false);
+    const soundToggle = el('set-email-notify-sound-toggle');
+    if (soundToggle) {
+      const { setMailSoundEnabledCache } = await import('./emailInbox.js');
+      setMailSoundEnabledCache(soundToggle.checked);
+      soundToggle.addEventListener('change', () => setMailSoundEnabledCache(soundToggle.checked));
+    }
+  } catch (_) {}
   const listEl = el('set-email-accounts-list');
   const msgEl = el('set-email-accounts-msg');
   const formEl = el('set-email-accounts-form');

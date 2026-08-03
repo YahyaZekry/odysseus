@@ -327,7 +327,7 @@ async function syncPrefNumber(elementId, prefKey, defaultVal) {
   }
 }
 
-async function syncPrefToggle(elementId, prefKey, onMsg, offMsg, dimBelow = true) {
+export async function syncPrefToggle(elementId, prefKey, onMsg, offMsg, dimBelow = true) {
   const toggle = document.getElementById(elementId);
   if (!toggle) return;
   try {

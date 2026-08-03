@@ -1175,6 +1175,7 @@ async def _scheduled_email_poller():
 
 _poller_task = None
 _summarize_task = None
+_notify_task = None
 
 def _inprocess_pollers_enabled() -> bool:
     """Honour `ODYSSEUS_INPROCESS_POLLERS` — set to `0`/`false`/`no`/`off`
@@ -1203,12 +1204,16 @@ def _start_poller():
     import asyncio
 
     def _launch():
-        global _poller_task, _summarize_task
+        global _poller_task, _summarize_task, _notify_task
         loop = asyncio.get_running_loop()
         if _poller_task is None:
             _poller_task = loop.create_task(_scheduled_email_poller())
             logger.info("Started scheduled email poller")
         _summarize_task = None
+        if _notify_task is None:
+            from src.email_notify import _email_notify_loop
+            _notify_task = loop.create_task(_email_notify_loop())
+            logger.info("Started email new-mail notify poller")
 
     try:
         _launch()
