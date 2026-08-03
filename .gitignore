@@ -102,3 +102,6 @@ compound.config.json
 *.error.log
 _scratch/
 /odysseus/
+
+# Local dev helper: restarts uvicorn on :24950 outside systemd
+restart.sh
