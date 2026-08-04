@@ -205,6 +205,16 @@ def searxng_search_api(query: str, count: Optional[int] = None, categories: str 
     headers = {"User-Agent": WEB_FETCH_USER_AGENT}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+    # News/fresh queries do badly in the 'general' category — it favours
+    # encyclopedic/tourism pages, ignores recency, and (with no language pin)
+    # bleeds in foreign-language results. When the agent layer detected
+    # freshness (time_filter) or the query reads like a news lookup, switch to
+    # the 'news' category, constrain recency, and pin language to English so a
+    # search like "Canada latest news" returns actual news instead of Wikipedia.
+    # Pin English for ALL searches — without it, SearXNG geolocates / mixes
+    # languages and brand-ambiguous terms bleed in foreign SEO pages (e.g.
+    # "Odyssey" → Honda Japan, "Trojan" → Japanese malware blogs, "Polyphemus"
+    # → Chinese math forums). The news path already did this; general didn't.
     params = {
         "q": query,
         "format": "json",

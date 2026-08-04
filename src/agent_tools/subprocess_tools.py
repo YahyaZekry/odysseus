@@ -3,6 +3,7 @@ import fcntl
 import os
 import pty
 import re
+import shutil
 import sys
 import termios
 import time
@@ -12,6 +13,10 @@ from src.constants import MAX_OUTPUT_CHARS
 
 DEFAULT_BASH_TIMEOUT = 60 * 60     # 1 hour
 DEFAULT_PYTHON_TIMEOUT = 60 * 60
+
+PROGRESS_INTERVAL_S = 2.0
+PROGRESS_TAIL_LINES = 12
+TMUX_CAPTURE_LINES = 2000
 
 # A `sudo` invocation at the start of the command or right after a shell
 # separator. Anchored this way so we don't rewrite the word "sudo" appearing
@@ -213,8 +218,182 @@ def _redact(text: str, secret: Optional[str]) -> str:
         return text
     return text.replace(secret, "********")
 
-PROGRESS_INTERVAL_S = 2.0
-PROGRESS_TAIL_LINES = 12
+
+# ── tmux-backed persistent shell sessions ──
+# When the agent loop passes a session_id and `tmux` is on PATH, bash commands
+# run inside a persistent tmux session keyed to that conversation instead of a
+# fresh one-shot subprocess -- so `cd`, exported env vars, and background jobs
+# started in one bash call are still there for the next one. Falls back to the
+# plain one-shot subprocess path (with the sudo/pty handling above) whenever
+# there's no session_id or tmux isn't installed.
+
+def _tmux_session_name(session_id: Optional[str]) -> str:
+    raw = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(session_id or "default")).strip("-")
+    return f"ody-agent-{raw[:80] or 'default'}"
+
+
+async def _run_exec(*args: str, timeout: float = 10) -> Tuple[str, str, int]:
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        return "", "timeout", 124
+    return (
+        out_b.decode("utf-8", errors="replace"),
+        err_b.decode("utf-8", errors="replace"),
+        proc.returncode or 0,
+    )
+
+
+async def _tmux_has_session(name: str) -> bool:
+    _, _, rc = await _run_exec("tmux", "has-session", "-t", name, timeout=3)
+    return rc == 0
+
+
+async def _tmux_capture(name: str) -> str:
+    out, _, _ = await _run_exec(
+        "tmux", "capture-pane", "-p", "-J", "-S", f"-{TMUX_CAPTURE_LINES}", "-t", name,
+        timeout=5,
+    )
+    return out
+
+
+async def _tmux_send_line(name: str, line: str) -> None:
+    if line:
+        await _run_exec("tmux", "send-keys", "-t", name, "-l", line, timeout=5)
+    await _run_exec("tmux", "send-keys", "-t", name, "C-m", timeout=5)
+
+
+async def _ensure_tmux_session(name: str, cwd: str, env: Optional[dict]) -> None:
+    if await _tmux_has_session(name):
+        await _run_exec("tmux", "send-keys", "-t", name, "stty -echo", "C-m", timeout=5)
+        return
+    await _run_exec(
+        "tmux", "new-session", "-d", "-s", name, "-c", cwd,
+        "env",
+        f"TERM={env.get('TERM', 'xterm-256color') if env else 'xterm-256color'}",
+        f"COLUMNS={env.get('COLUMNS', '120') if env else '120'}",
+        f"LINES={env.get('LINES', '40') if env else '40'}",
+        "/bin/bash",
+        "--noprofile",
+        "--norc",
+        timeout=10,
+    )
+    if not await _tmux_has_session(name):
+        raise RuntimeError(f"failed to create tmux session {name}")
+    await _run_exec("tmux", "send-keys", "-t", name, "stty -echo", "C-m", timeout=5)
+
+
+def _output_after_marker(capture: str, start_marker: str, end_marker: str) -> Tuple[str, bool]:
+    lines = capture.splitlines()
+    start_idx = -1
+    for idx, line in enumerate(lines):
+        if line.strip() == start_marker:
+            start_idx = idx
+    if start_idx < 0:
+        return capture, False
+    end_idx = -1
+    for idx in range(start_idx + 1, len(lines)):
+        if lines[idx].strip().startswith(end_marker):
+            end_idx = idx
+    if end_idx < 0:
+        return "\n".join(lines[start_idx + 1:]), False
+    return "\n".join(lines[start_idx + 1:end_idx]), True
+
+
+def _extract_marker_rc(capture: str, end_marker: str) -> int:
+    for line in reversed(capture.splitlines()):
+        stripped = line.strip()
+        if stripped.startswith(end_marker):
+            suffix = stripped[len(end_marker):].strip()
+            if suffix.isdigit():
+                return int(suffix)
+    return 0
+
+
+async def _run_tmux_bash(
+    content: str,
+    *,
+    session_id: str,
+    cwd: str,
+    env: Optional[dict],
+    timeout: float,
+    progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
+) -> Tuple[str, str, Optional[int], bool]:
+    name = _tmux_session_name(session_id)
+    await _ensure_tmux_session(name, cwd, env)
+
+    stamp = f"{int(time.time() * 1000)}-{abs(hash(content)) % 1000000}"
+    start_marker = f"__ODYSSEUS_CMD_START_{stamp}__"
+    end_prefix = f"__ODYSSEUS_CMD_END_{stamp}__:"
+    wrapped = (
+        f"printf '\\n{start_marker}\\n'\n"
+        f"{content}\n"
+        f"__ody_rc=$?\n"
+        f"printf '\\n{end_prefix}%s\\n' \"$__ody_rc\"\n"
+    )
+    for line in wrapped.splitlines():
+        await _tmux_send_line(name, line)
+
+    started = time.time()
+    last_tail = ""
+    while True:
+        capture = await _tmux_capture(name)
+        body, done = _output_after_marker(capture, start_marker, end_prefix)
+        tail = "\n".join(body.splitlines()[-PROGRESS_TAIL_LINES:])
+        if progress_cb and tail != last_tail:
+            last_tail = tail
+            try:
+                await progress_cb({
+                    "elapsed_s": round(time.time() - started, 1),
+                    "tail": tail,
+                    "tmux_session": name,
+                })
+            except Exception:
+                pass
+        if done:
+            rc = _extract_marker_rc(capture, end_prefix)
+            cleaned = _clean_tmux_command_output(body, wrapped)
+            return cleaned, "", rc, False
+        if time.time() - started > timeout:
+            try:
+                await _run_exec("tmux", "send-keys", "-t", name, "C-c", timeout=3)
+            except Exception:
+                pass
+            cleaned = _clean_tmux_command_output(body, wrapped)
+            return cleaned, "", 124, True
+        await asyncio.sleep(0.5)
+
+
+def _clean_tmux_command_output(text: str, wrapped_command: str) -> str:
+    lines = text.splitlines()
+    wrapped_lines = {ln.rstrip() for ln in wrapped_command.splitlines() if ln.strip()}
+    cleaned = []
+    for line in lines:
+        raw = line.rstrip()
+        stripped = raw.strip()
+        if not stripped:
+            cleaned.append(raw)
+            continue
+        if stripped in wrapped_lines:
+            continue
+        if stripped.startswith("__ody_rc=") or stripped.startswith("printf "):
+            continue
+        if re.fullmatch(r"(?:bash|sh)-[\d.]+\$ ?", stripped):
+            continue
+        if re.fullmatch(r"[\w.@:/~+-]+[#$] ?", stripped):
+            continue
+        cleaned.append(raw)
+    return "\n".join(cleaned).strip()
+
 
 async def _run_subprocess_streaming(
     proc: asyncio.subprocess.Process,
@@ -309,12 +488,48 @@ class BashTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import agent_cwd, _truncate
         from src import sudo_auth
+        if isinstance(content, dict):
+            content = str(content.get("command") or content.get("cmd") or content.get("code") or "")
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
         owner = ctx.get("owner")
+        session_id = ctx.get("session_id")
         cwd = agent_cwd()
 
         command = _add_noconfirm_to_garuda_update(content)
+
+        # Persistent tmux session (state survives across tool calls in the same
+        # conversation) when available. No sudo-prompt handling in this path --
+        # a real terminal is there, but nothing feeds it a password -- so this
+        # is skipped whenever the command needs sudo and falls through to the
+        # one-shot path below, which does handle it.
+        if session_id and shutil.which("tmux") and not _mentions_sudo(command):
+            stdout, stderr, rc, timed_out = await _run_tmux_bash(
+                command,
+                session_id=str(session_id),
+                cwd=cwd,
+                env=_subproc_env,
+                timeout=DEFAULT_BASH_TIMEOUT,
+                progress_cb=progress_cb,
+            )
+            if timed_out:
+                return {
+                    "error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — sent Ctrl-C to tmux session",
+                    "exit_code": 124,
+                    "stdout": _truncate(stdout, MAX_OUTPUT_CHARS),
+                    "stderr": _truncate(stderr, MAX_OUTPUT_CHARS),
+                    "tmux_session": _tmux_session_name(str(session_id)),
+                }
+            output = stdout.rstrip()
+            err = stderr.rstrip()
+            if err:
+                output = (output + "\nSTDERR: " + err).strip() if output else "STDERR: " + err
+            return {
+                "output": _truncate(output, MAX_OUTPUT_CHARS) or "(no output)",
+                "exit_code": rc or 0,
+                "tmux_session": _tmux_session_name(str(session_id)),
+            }
+
         stdin_payload: Optional[bytes] = None
         password: Optional[str] = None
 

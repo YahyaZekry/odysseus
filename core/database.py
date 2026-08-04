@@ -1870,6 +1870,7 @@ class FeedSyncAccount(TimestampMixin, Base):
 
 
 
+
 def _migrate_seed_email_account():
     """If email_accounts is empty and settings.json has legacy flat imap_host/smtp_host
     keys, create a single default account from them so nothing breaks for users who

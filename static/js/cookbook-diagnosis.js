@@ -450,7 +450,6 @@ export const ERROR_PATTERNS = [
     message: 'Single-file checkpoint needs a base model for missing components (text encoder, VAE). The base model may be gated — accept the license and set your HF token.',
     fixes: [
       { label: 'Request access to base model', action: (panel, _text) => {
-        // Extract gated repo from error, or infer from model name
         const gated = _text && _text.match(/Access to model\s+(\S+)\s+is restricted/i);
         const base = _text && _text.match(/config=([^\s,)]+)/i);
         const model = _text && _text.match(/load model from\s+(\S+)/i);
@@ -465,8 +464,16 @@ export const ERROR_PATTERNS = [
     ],
   },
   {
+    pattern: /OmniGen2Pipeline|module diffusers has no attribute .*Pipeline|custom_pipeline=.*failed/i,
+    message: 'This image model uses a custom Diffusers pipeline that your launch environment does not know yet.',
+    fixes: [
+      { label: 'Update image dependencies', action: () => _openCookbookDependencies('diffusers') },
+      { label: 'Copy diagnosis', action: (_panel, _text) => navigator.clipboard?.writeText(_text || '') },
+    ],
+  },
+  {
     pattern: /Entry Not Found.*model_index\.json|Could not load model.*Check diffusers/i,
-    message: 'Single-file model — needs base config from a gated repo. Accept the license and set your HF token.',
+    message: 'Single-file model may need an explicit base config. Add --single-file-config <repo_or_path> if the checkpoint is missing components.',
     fixes: [
       { label: 'Request access to base model', action: (panel, _text) => {
         const gated = _text && _text.match(/Access to model\s+(\S+)\s+is restricted/i);
@@ -558,6 +565,15 @@ export const ERROR_PATTERNS = [
       { label: 'Install MLX LM', action: (panel) => _installMlxLm(panel) },
       { label: 'Open Dependencies', action: () => _openCookbookDependencies('mlx_lm') },
       { label: 'Copy install command', action: () => _copyText('python3 -m pip install -U mlx-lm') },
+    ],
+  },
+  {
+    pattern: /mflux-generate-qwen.*not found|mflux-generate.*not found|MLX image serving requires mflux|No module named ['"]?mflux/i,
+    message: 'MLX image serving requires mflux on this Apple Silicon server.',
+    suggestion: 'Suggested action: install mflux in the selected Python environment. This is for MLX image generation, not text MLX-LM.',
+    fixes: [
+      { label: 'Open Dependencies', action: () => _openCookbookDependencies('mflux') },
+      { label: 'Copy install command', action: () => _copyText('python3 -m pip install -U mflux fastapi uvicorn') },
     ],
   },
   {
@@ -725,11 +741,11 @@ export const ERROR_PATTERNS = [
     ],
   },
   {
-    pattern: /No module named ['"]?torch|No module named ['"]?diffusers|diffusers.*command not found/i,
-    message: 'Diffusion serving needs PyTorch and diffusers. Install diffusers from Cookbook → Dependencies.',
+    pattern: /No module named ['"]?torch|No module named ['"]?torchvision|No module named ['"]?diffusers|No module named ['"]?scipy|install scipy if you want to use beta sigmas|requires the Torchvision library|diffusers.*command not found/i,
+    message: 'Diffusion serving needs PyTorch, Torchvision, Diffusers, Accelerate, and SciPy. Install Diffusers image deps from Cookbook → Dependencies.',
     fixes: [
       { label: 'Open Dependencies', action: () => _openCookbookDependencies('diffusers') },
-      { label: 'Copy install command', action: () => _copyText('python3 -m pip install "diffusers[torch]"') },
+      { label: 'Copy install command', action: () => _copyText('python3 -m pip install "diffusers[torch]" torchvision accelerate scipy python-multipart') },
     ],
   },
   {
