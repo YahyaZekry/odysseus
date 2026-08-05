@@ -10,6 +10,16 @@ name: upstream sync check
 #                     and fix it" task instead of starting from scratch.
 # Re-runs always start the branch fresh from the current dev + a fresh
 # fetch of upstream, so the PR never goes stale while it sits unmerged.
+#
+# PR creation via the default GITHUB_TOKEN is blocked by a GitHub-side
+# guardrail even with "Allow GitHub Actions to create and approve pull
+# requests" enabled on this repo (observed, not just documented — three
+# runs failed identically with "Resource not accessible by integration
+# (createPullRequest)" after enabling it). Uses a fine-grained PAT stored
+# as the SYNC_PR_TOKEN secret instead (repo-scoped to this repo only,
+# Contents: read/write + Pull requests: read/write). Falls back to the
+# default token if the secret isn't set, which will hit the same error
+# until SYNC_PR_TOKEN is added.
 
 on:
   schedule:
@@ -41,6 +51,7 @@ jobs:
           ref: dev
           fetch-depth: 0
           persist-credentials: true
+          token: ${{ secrets.SYNC_PR_TOKEN || github.token }}
 
       - name: Configure git identity
         run: |
@@ -82,7 +93,7 @@ jobs:
       - name: Open or update PR
         if: steps.diff.outputs.count != '0'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.SYNC_PR_TOKEN || github.token }}
           CLEAN: ${{ steps.merge.outputs.clean }}
           COUNT: ${{ steps.diff.outputs.count }}
         run: |
