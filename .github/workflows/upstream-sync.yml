@@ -96,21 +96,26 @@ jobs:
           GH_TOKEN: ${{ secrets.SYNC_PR_TOKEN || github.token }}
           CLEAN: ${{ steps.merge.outputs.clean }}
           COUNT: ${{ steps.diff.outputs.count }}
+        # Uses the REST API (gh api) rather than `gh pr create`/`gh pr edit`,
+        # which go through GraphQL's createPullRequest mutation -- that
+        # mutation rejects fine-grained PATs with "Resource not accessible"
+        # even when the token has full Contents + Pull requests read/write,
+        # a known gap in fine-grained PAT support on the GraphQL API. The
+        # REST endpoint works fine with the same token/permissions.
         run: |
           if [ "$CLEAN" = "true" ]; then
             title="Sync with upstream ($COUNT commit(s))"
             body="Clean merge of \`upstream/${UPSTREAM_BRANCH}\` ($COUNT new commit(s)). Ready to review and merge."
-            draft_flag=""
+            draft=false
           else
             title="Sync with upstream ($COUNT commit(s)) — has conflicts"
             body="Merge of \`upstream/${UPSTREAM_BRANCH}\` ($COUNT new commit(s)) has unresolved conflicts, committed with markers intact. Check out \`$SYNC_BRANCH\` and resolve them, then push fixes to this same branch."
-            draft_flag="--draft"
+            draft=true
           fi
 
-          existing_pr=$(gh pr list --head "$SYNC_BRANCH" --base dev --json number --jq '.[0].number // empty')
+          existing_pr=$(gh api "repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${SYNC_BRANCH}&base=dev&state=open" --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
-            gh pr edit "$existing_pr" --title "$title" --body "$body"
+            gh api "repos/${{ github.repository }}/pulls/${existing_pr}" -X PATCH -f title="$title" -f body="$body"
           else
-            # shellcheck disable=SC2086
-            gh pr create --head "$SYNC_BRANCH" --base dev --title "$title" --body "$body" $draft_flag
+            gh api "repos/${{ github.repository }}/pulls" -X POST -f title="$title" -f body="$body" -f head="$SYNC_BRANCH" -f base=dev -F draft="$draft"
           fi
