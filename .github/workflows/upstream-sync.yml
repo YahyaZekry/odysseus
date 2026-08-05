@@ -1,0 +1,105 @@
+name: upstream sync check
+
+# Checks odysseus-dev/odysseus (the actively-maintained project this fork
+# tracks) for new commits on `dev` that this repo's `dev` doesn't have yet.
+# If there's anything new, (re)creates a single persistent branch/PR with
+# the merge already attempted:
+#   - clean merge  -> PR is ready to review and merge as-is
+#   - conflicts    -> PR is opened as a draft with conflict markers committed,
+#                     so resolving them is a normal "check out this branch
+#                     and fix it" task instead of starting from scratch.
+# Re-runs always start the branch fresh from the current dev + a fresh
+# fetch of upstream, so the PR never goes stale while it sits unmerged.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily, 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync-check
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_URL: https://github.com/odysseus-dev/odysseus.git
+  UPSTREAM_BRANCH: dev
+  SYNC_BRANCH: upstream-sync
+
+jobs:
+  check-and-sync:
+    name: check upstream, open/update sync PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          ref: dev
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "$UPSTREAM_BRANCH" --quiet
+
+      - name: Check for new upstream commits
+        id: diff
+        run: |
+          count=$(git rev-list --count "HEAD..upstream/${UPSTREAM_BRANCH}")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "$count new upstream commit(s)"
+
+      - name: Attempt merge on a fresh sync branch
+        if: steps.diff.outputs.count != '0'
+        id: merge
+        run: |
+          git branch -f "$SYNC_BRANCH" HEAD
+          git checkout "$SYNC_BRANCH"
+          if git merge "upstream/${UPSTREAM_BRANCH}" --no-edit; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+            # Conflicts are left as-is (markers included) and committed, so
+            # the branch is a normal starting point for manual resolution.
+            git add -A
+            git commit -m "Merge upstream/${UPSTREAM_BRANCH} (has conflicts, needs manual resolution)"
+          fi
+
+      - name: Push sync branch
+        if: steps.diff.outputs.count != '0'
+        run: git push origin "$SYNC_BRANCH" --force
+
+      - name: Open or update PR
+        if: steps.diff.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLEAN: ${{ steps.merge.outputs.clean }}
+          COUNT: ${{ steps.diff.outputs.count }}
+        run: |
+          if [ "$CLEAN" = "true" ]; then
+            title="Sync with upstream ($COUNT commit(s))"
+            body="Clean merge of \`upstream/${UPSTREAM_BRANCH}\` ($COUNT new commit(s)). Ready to review and merge."
+            draft_flag=""
+          else
+            title="Sync with upstream ($COUNT commit(s)) — has conflicts"
+            body="Merge of \`upstream/${UPSTREAM_BRANCH}\` ($COUNT new commit(s)) has unresolved conflicts, committed with markers intact. Check out \`$SYNC_BRANCH\` and resolve them, then push fixes to this same branch."
+            draft_flag="--draft"
+          fi
+
+          existing_pr=$(gh pr list --head "$SYNC_BRANCH" --base dev --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --title "$title" --body "$body"
+          else
+            # shellcheck disable=SC2086
+            gh pr create --head "$SYNC_BRANCH" --base dev --title "$title" --body "$body" $draft_flag
+          fi
