@@ -516,7 +516,6 @@ class BashTool:
         _subproc_env = ctx.get("subproc_env")
         owner = ctx.get("owner")
         session_id = ctx.get("session_id")
-<<<<<<< HEAD
         cwd = agent_cwd()
 
         command = _add_noconfirm_to_garuda_update(content)
@@ -525,14 +524,10 @@ class BashTool:
         # conversation) when available. No sudo-prompt handling in this path --
         # a real terminal is there, but nothing feeds it a password -- so this
         # is skipped whenever the command needs sudo and falls through to the
-        # one-shot path below, which does handle it.
-        if session_id and shutil.which("tmux") and not _mentions_sudo(command):
-=======
-        # tmux is a POSIX persistence path. A stray MSYS/Cygwin tmux.exe on
-        # native Windows must not bypass the Git Bash launcher below: the tmux
-        # setup hard-codes /bin/bash and cannot safely consume a native cwd.
-        if session_id and not IS_WINDOWS and shutil.which("tmux"):
->>>>>>> upstream/dev
+        # one-shot path below, which does handle it. Also skipped on native
+        # Windows: a stray MSYS/Cygwin tmux.exe hard-codes /bin/bash and can't
+        # safely consume a native cwd -- the Git Bash launcher below handles it.
+        if session_id and shutil.which("tmux") and not IS_WINDOWS and not _mentions_sudo(command):
             stdout, stderr, rc, timed_out = await _run_tmux_bash(
                 command,
                 session_id=str(session_id),
@@ -559,7 +554,6 @@ class BashTool:
                 "tmux_session": _tmux_session_name(str(session_id)),
             }
 
-<<<<<<< HEAD
         stdin_payload: Optional[bytes] = None
         password: Optional[str] = None
 
@@ -586,14 +580,17 @@ class BashTool:
                 # first sudo, so a chained second one needs its own.
                 stdin_payload = ((password + "\n") * max(1, sudo_count)).encode()
 
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdin=asyncio.subprocess.PIPE if stdin_payload is not None else None,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=_subproc_env,
-            cwd=cwd,
-        )
+        try:
+            proc = await _create_bash_subprocess(
+                command,
+                stdin=asyncio.subprocess.PIPE if stdin_payload is not None else None,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=_subproc_env,
+                cwd=cwd,
+            )
+        except RuntimeError as e:
+            return {"error": f"bash: {e}", "exit_code": 1}
         if stdin_payload is not None and proc.stdin is not None:
             try:
                 proc.stdin.write(stdin_payload)
@@ -605,18 +602,6 @@ class BashTool:
             except Exception:
                 pass
 
-=======
-        try:
-            proc = await _create_bash_subprocess(
-                content,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_subproc_env,
-                cwd=agent_cwd(),
-            )
-        except RuntimeError as e:
-            return {"error": f"bash: {e}", "exit_code": 1}
->>>>>>> upstream/dev
         stdout, stderr, rc, timed_out = await _run_subprocess_streaming(
             proc,
             timeout=DEFAULT_BASH_TIMEOUT,

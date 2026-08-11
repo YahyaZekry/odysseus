@@ -23,16 +23,13 @@ import slashCommands, { initSlashCommands, isCommand, handleSlashCommand, handle
 import createResearchSynapse from './researchSynapse.js';
 import { createStreamRenderer } from './streamingRenderer.js';
 import { wireArrowUpRecall, getUserMessagesFromChatHistory } from './composerArrowUpRecall.js?v=20260714promptrecall';
-<<<<<<< HEAD
 import { showSudoPrompt, resumePendingSudoPrompt } from './sudoPrompt.js';
-=======
 import {
   createIncrementalDisplayProjector,
   createLiveThinkingThrottle,
   createThinkingAnalysisGate,
   stripLiveThinkingTags,
 } from './liveThinkingThrottle.js';
->>>>>>> upstream/dev
 
   const RESEARCH_TIMEOUT_MS = 360000;
   const DEFAULT_TIMEOUT_MS = 120000;

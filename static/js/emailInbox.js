@@ -943,10 +943,6 @@ function _createEmailItem(em) {
   return item;
 }
 
-<<<<<<< HEAD
-async function _openEmail(em, itemEl, preloadedData = null, mode = 'reply', noteHint = '', prefilledBody = '') {
-  const aiReplyMode = mode === 'ai-reply-fast' ? 'fast' : (mode === 'ai-reply-full' ? 'full' : '');
-=======
 async function _openEmail(em, itemEl, preloadedData = null, mode = 'reply', noteHint = '', prefilledBody = '', mailboxContext = null) {
   const openRequestSeq = ++_openEmailRequestSeq;
   const folderAtStart = mailboxContext?.messageFolder || _currentFolder;
@@ -962,8 +958,7 @@ async function _openEmail(em, itemEl, preloadedData = null, mode = 'reply', note
     openRequestSeq === _openEmailRequestSeq &&
     mailboxContextIsCurrent()
   );
-  const aiReplyMode = mode === 'ai-reply-fast' ? 'fast' : '';
->>>>>>> upstream/dev
+  const aiReplyMode = mode === 'ai-reply-fast' ? 'fast' : (mode === 'ai-reply-full' ? 'full' : '');
   const wantsAiReply = mode === 'ai-reply' || !!aiReplyMode;
   // Body pre-fill from the agent's open_email_reply tool call takes the
   // same insertion slot as an AI-suggested body — both land just before

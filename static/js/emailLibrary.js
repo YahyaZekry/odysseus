@@ -5929,11 +5929,6 @@ async function _toggleCardPreview(card, em) {
       if (isCurrentOpen()) showFailedReader(`Failed to load email: ${data.error}`);
       return;
     }
-<<<<<<< HEAD
-    // Mark as read locally
-    _syncEmailReadState(em.uid, true);
-    _prefetchAdjacentEmails(card);
-=======
     if (data.mark_seen_failed) {
       // The body is authoritative even when the provider refused the \Seen
       // transition. Render the message and roll the unread marker back so the
@@ -5945,7 +5940,7 @@ async function _toggleCardPreview(card, em) {
       commitReadState();
     }
     if (!isCurrentOpen()) return;
->>>>>>> upstream/dev
+    _prefetchAdjacentEmails(card);
     _stampReaderContext(reader, { ...em, ...data }, state._libFolder, state._libAccountId);
 
     // Build the attachments wrap using the shared helper so the signature-
