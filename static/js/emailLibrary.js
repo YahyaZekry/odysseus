@@ -2457,7 +2457,7 @@ export function openEmailLibrary(opts = {}) {
             </div>
             <div class="email-search-row" style="display:flex;gap:6px;align-items:flex-start;">
             <div class="email-search-wrap" style="position:relative;flex:1;min-width:140px;">
-              <div class="email-lib-chip-bar memory-search-input" id="email-lib-chip-bar" style="width:100%;padding-right:134px;padding-left:26px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;cursor:text;min-height:30px;position:relative;">
+              <div class="email-lib-chip-bar memory-search-input" id="email-lib-chip-bar" style="width:100%;padding-right:150px;padding-left:26px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;cursor:text;min-height:30px;position:relative;">
                 <svg class="email-lib-chip-bar-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--accent, var(--red));"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
                 <span id="email-lib-pills" style="display:contents"></span>
                 <input type="text" id="email-lib-search" placeholder="Search by name or text" autocomplete="off" style="flex:1;min-width:80px;border:0;outline:none;background:transparent;color:inherit;font:inherit;padding:0;position:relative;top:-1px;" />
@@ -2747,7 +2747,15 @@ export function openEmailLibrary(opts = {}) {
   document.getElementById('email-lib-settings-btn')?.addEventListener('click', (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    _showEmailSettingsPage();
+    // Toggle, not just open: this button already carries .active and
+    // aria-expanded, so a second click has to collapse the page. It used to
+    // re-run _showEmailSettingsPage(), which re-fetched and re-rendered the
+    // same page -- leaving the small header back-arrow as the only way out.
+    if (document.getElementById('email-lib-modal')?.classList.contains('email-settings-mode')) {
+      _hideEmailSettingsPage();
+    } else {
+      _showEmailSettingsPage();
+    }
   });
 
 
@@ -3078,6 +3086,21 @@ function _renderAccountsStrip() {
       e.stopPropagation();
       const acctId = btn.dataset.setDefault;
       if (!acctId) return;
+      // This dot is a sibling of the chip button, absolutely positioned over
+      // the chip's reserved 24px right padding -- so a click here never
+      // reached the chip's own select handler, and on the account that was
+      // already default set-default is a no-op too. Net effect: the right
+      // edge of a chip was a dead zone that silently did nothing. Anyone not
+      // deliberately aiming for the 18px dot means "switch to this account",
+      // so do that as well whenever it isn't already the active one.
+      if (state._libAccountId !== acctId) {
+        state._libAccountId = acctId;
+        _publishActiveAccount();
+        _resetEmailListForFreshLoad({ useCache: false });
+        _loadEmails({ force: true, useCache: false });
+        _loadFolders({ resetMissing: true }).catch(() => {});
+        _refreshAccountUnreadHighlights().catch(() => {});
+      }
       try {
         await fetch(`${API_BASE}/api/email/accounts/${encodeURIComponent(acctId)}/set-default`, {
           method: 'POST', credentials: 'same-origin',

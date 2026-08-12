@@ -1318,6 +1318,21 @@ if (!window._odyEscExpandGuard) {
         return;
       }
     }
+    // Email's settings page is a layer *inside* the Email modal -- the same
+    // shape as the settings-modal inner form handled just above, so it gets
+    // the same treatment: back out one level instead of closing the whole
+    // Email window. This has to live here rather than in emailLibrary.js
+    // because this handler runs first (document capture) and ends with
+    // stopImmediatePropagation(), so a module-level Escape branch never runs.
+    const emailModal = document.getElementById('email-lib-modal');
+    if (emailModal && _isVisible(emailModal) && emailModal.classList.contains('email-settings-mode')) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      // Click the existing back button so the show/hide bookkeeping
+      // (.active, aria-expanded, page.hidden) stays in one place.
+      try { emailModal.querySelector('#email-settings-header-back')?.click(); } catch {}
+      return;
+    }
     const topModal = pickTopModal();
     if (!topModal) return;
     const closeBtn = topModal.querySelector('.close-btn, .modal-close-btn, [data-action="close"]');

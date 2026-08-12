@@ -30,6 +30,7 @@ export const THEMES = {
   claude:     { bg:'#262624', fg:'#f5f4f0', panel:'#30302e', border:'#4a4a47', red:'#c6613f' },
   cute:       { bg:'#fff0f5', fg:'#d4608a', panel:'#fff8fa', border:'#f0c0d0', red:'#ff6b9d' },
   navyseal:   { bg:'#0a1628', fg:'#b0cce8', panel:'#0e1e36', border:'#f0c800', red:'#00bcd4' },
+  gotham:     { bg:'#10131f', fg:'#d8dbee', panel:'#080a12', border:'#262c48', red:'#f2c14e' },
 };
 
 const DEFAULT_THEME = 'dark';
@@ -61,6 +62,7 @@ const THEME_DEFAULT_PATTERN = {
   ume:        'petals',
   cute:       'sparkles',
   navyseal:   'aurora',
+  gotham:     'bats',
 };
 
 // Default effect colors for specific themes (overrides --fg)
@@ -78,6 +80,7 @@ const THEME_DEFAULT_INTENSITY = {
   terminal:   0.8,
   organs:     0.65,
   navyseal:   0.5,
+  gotham:     0.6,
 };
 
 // Default frosted-glass state per theme. Themes not listed default to false.
@@ -106,6 +109,8 @@ export function saveCustomTheme(name, colors, opts) {
     if (opts.bgEffectColor) entry.bgEffectColor = opts.bgEffectColor;
     if (opts.bgEffectIntensity !== undefined) entry.bgEffectIntensity = opts.bgEffectIntensity;
     if (opts.bgEffectSize !== undefined) entry.bgEffectSize = opts.bgEffectSize;
+    if (opts.bgEffectSpeed !== undefined) entry.bgEffectSpeed = opts.bgEffectSpeed;
+    if (opts.bgEffectCount !== undefined) entry.bgEffectCount = opts.bgEffectCount;
     if (opts.frosted !== undefined) entry.frosted = !!opts.frosted;
     if (opts.neonGlow !== undefined) entry.neonGlow = !!opts.neonGlow;
   }
@@ -134,6 +139,16 @@ function _syncCustomThemesToServer(ct) {
 }
 
 // --- Syntax color derivation from theme base colors ---
+// WCAG relative luminance (0..1) -- used to pick readable text for content
+// sitting on a --red-colored background, since --red is theme-configurable
+// and a light accent (e.g. a bat-signal amber) needs dark text where every
+// darker accent reads fine with white.
+function _relativeLuminance(hex) {
+  const { r, g, b } = hexToRgb(hex) || { r: 0, g: 0, b: 0 };
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
 function hexToHSL(hex) {
   const rgb = hexToRgb(hex) || { r: 0, g: 0, b: 0 };
   const r = rgb.r / 255;
@@ -266,6 +281,11 @@ export function applyColors(colors) {
   s.setProperty('--panel', colors.panel);
   s.setProperty('--border', colors.border);
   if (colors.red) s.setProperty('--red', colors.red);
+  // Contrast ratio of white text against --red; below ~3:1 (roughly a
+  // light/saturated accent like amber or yellow), dark text reads far
+  // better than the white every other built-in theme's --red allows.
+  const _redContrastVsWhite = 1.05 / (_relativeLuminance(colors.red || '#e06c75') + 0.05);
+  s.setProperty('--on-accent', _redContrastVsWhite < 3 ? '#171717' : '#fff');
 
   // Keep the mobile browser toolbar / status bar matched to the theme bg
   // (same as the early head-script does on first paint).
@@ -412,12 +432,12 @@ const _BG_CLASSES = ['bg-pattern-dots',
   'bg-pattern-perlin-flow',
   'bg-pattern-petals', 'bg-pattern-sparkles', 'bg-pattern-embers',
   'bg-pattern-aurora', 'bg-pattern-matrix', 'bg-pattern-waves',
-  'bg-pattern-nebula', 'bg-pattern-ripples', 'bg-pattern-hexgrid'];
+  'bg-pattern-nebula', 'bg-pattern-ripples', 'bg-pattern-hexgrid', 'bg-pattern-bats'];
 const _CANVAS_PATTERNS = { synapse: _initSynapse, rain: _initRain, constellations: _initConstellations,
   'perlin-flow': _initPerlinFlow,
   petals: _initPetals, sparkles: _initSparkles, embers: _initEmbers,
   aurora: _initAurora, matrix: _initMatrix, waves: _initWaves,
-  nebula: _initNebula, ripples: _initRipples, hexgrid: _initHexGrid };
+  nebula: _initNebula, ripples: _initRipples, hexgrid: _initHexGrid, bats: _initBats };
 
 export function applyBgEffectColor(color) {
   document.documentElement.style.setProperty('--bg-effect-color', color || '');
@@ -433,6 +453,18 @@ export function applyBgEffectSize(v) {
   // v is a multiplier 0.3..2.5. Default 1 when missing.
   const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.2, Math.min(3, Number(v)));
   document.documentElement.style.setProperty('--bg-effect-size', String(n));
+}
+
+export function applyBgEffectSpeed(v) {
+  // v is a multiplier 0.2..3. Default 1 when missing.
+  const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.2, Math.min(3, Number(v)));
+  document.documentElement.style.setProperty('--bg-effect-speed', String(n));
+}
+
+export function applyBgEffectCount(v) {
+  // v is a multiplier 0.2..3. Default 1 when missing.
+  const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.2, Math.min(3, Number(v)));
+  document.documentElement.style.setProperty('--bg-effect-count', String(n));
 }
 
 /** Toggle the global "frosted glass" look — applies a translucent + blurred
@@ -454,22 +486,68 @@ function _getEffectSize() {
   return isNaN(v) ? 1 : v;
 }
 
+// Read current speed multiplier for JS effects (canvas-based).
+function _getEffectSpeed() {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-speed'));
+  return isNaN(v) ? 1 : v;
+}
+
+// Read current population multiplier for JS effects (canvas-based).
+function _getEffectCount() {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-count'));
+  return isNaN(v) ? 1 : v;
+}
+
+// Grow/shrink a particle array to `target` length, filling new slots with makeFn().
+function _reconcileCount(arr, target, makeFn) {
+  while (arr.length < target) arr.push(makeFn());
+  if (arr.length > target) arr.length = target;
+}
+
 // Patterns where the intensity/size sliders have no visible effect.
 const _STATIC_PATTERNS = new Set(['none', 'dots']);
+
+// Patterns with a discrete particle population (the count slider applies).
+// Field patterns (aurora/waves/hexgrid) have no particle count to scale.
+const _COUNT_CAPABLE_PATTERNS = new Set(['synapse', 'rain', 'constellations',
+  'perlin-flow', 'petals', 'sparkles', 'embers', 'nebula', 'ripples', 'bats']);
 
 export function applyBgPattern(pattern) {
   const p = pattern || 'none';
   document.body.classList.remove(..._BG_CLASSES);
   // Clean up any canvas backgrounds
-  document.querySelectorAll('#synapse-canvas, #rain-canvas, #constellations-canvas, #perlin-flow-canvas, #petals-canvas, #sparkles-canvas, #embers-canvas, #aurora-canvas, #matrix-canvas, #waves-canvas, #nebula-canvas, #ripples-canvas, #hexgrid-canvas').forEach(c => c.remove());
+  document.querySelectorAll('#synapse-canvas, #rain-canvas, #constellations-canvas, #perlin-flow-canvas, #petals-canvas, #sparkles-canvas, #embers-canvas, #aurora-canvas, #matrix-canvas, #waves-canvas, #nebula-canvas, #ripples-canvas, #hexgrid-canvas, #bats-canvas').forEach(c => c.remove());
   if (p !== 'none') document.body.classList.add('bg-pattern-' + p);
   if (_CANVAS_PATTERNS[p]) _CANVAS_PATTERNS[p]();
   // Hide sliders that do nothing on static patterns.
   const hide = _STATIC_PATTERNS.has(p);
   const ig = document.getElementById('theme-bg-intensity-group');
   const sg = document.getElementById('theme-bg-size-group');
+  const spg = document.getElementById('theme-bg-speed-group');
+  const cg = document.getElementById('theme-bg-count-group');
   if (ig) ig.style.display = hide ? 'none' : '';
   if (sg) sg.style.display = hide ? 'none' : '';
+  if (spg) spg.style.display = hide ? 'none' : '';
+  if (cg) cg.style.display = _COUNT_CAPABLE_PATTERNS.has(p) ? '' : 'none';
+}
+
+// Gotham-only flourish: a faint bat emblem watermark + a sweeping bat-signal
+// light. Tied to the theme NAME (not the pattern picker) so it stays put
+// regardless of which background pattern is selected, and never shows for
+// any other theme.
+export function applyThemeDecor(name) {
+  const existing = document.getElementById('gotham-fx');
+  if (name !== 'gotham') {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing) return;
+  const el = document.createElement('div');
+  el.id = 'gotham-fx';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<div class="gotham-fx-beam"></div>'
+    + '<div class="gotham-fx-cloud c1"></div><div class="gotham-fx-cloud c2"></div><div class="gotham-fx-cloud c3"></div>';
+  document.body.prepend(el);
 }
 
 export function getSaved() {
@@ -490,6 +568,8 @@ export function save(name, colors, opts) {
     if (opts.bgEffectColor) obj.bgEffectColor = opts.bgEffectColor;
     if (opts.bgEffectIntensity !== undefined && opts.bgEffectIntensity !== 1) obj.bgEffectIntensity = opts.bgEffectIntensity;
     if (opts.bgEffectSize !== undefined && opts.bgEffectSize !== 1) obj.bgEffectSize = opts.bgEffectSize;
+    if (opts.bgEffectSpeed !== undefined && opts.bgEffectSpeed !== 1) obj.bgEffectSpeed = opts.bgEffectSpeed;
+    if (opts.bgEffectCount !== undefined && opts.bgEffectCount !== 1) obj.bgEffectCount = opts.bgEffectCount;
     if (opts.frosted) obj.frosted = true;
     if (opts.neonGlow) obj.neonGlow = true;
   }
@@ -698,12 +778,16 @@ export function initThemeUI() {
     const ec = document.getElementById('theme-bg-effect-color');
     const es = document.getElementById('theme-bg-intensity');
     const sz = document.getElementById('theme-bg-size');
+    const spEl = document.getElementById('theme-bg-speed');
+    const cntEl = document.getElementById('theme-bg-count');
     if (fs) opts.font = fs.value;
     if (ds) opts.density = ds.value;
     if (ps) opts.bgPattern = ps.value;
     if (ec) opts.bgEffectColor = ec.value;
     if (es) opts.bgEffectIntensity = parseFloat(es.value) / 100;
     if (sz) opts.bgEffectSize = parseFloat(sz.value) / 100;
+    if (spEl) opts.bgEffectSpeed = parseFloat(spEl.value) / 100;
+    if (cntEl) opts.bgEffectCount = parseFloat(cntEl.value) / 100;
     const fr = document.getElementById('theme-frosted-toggle');
     if (fr) opts.frosted = !!fr.checked;
     const ng = document.getElementById('theme-neon-toggle');
@@ -733,6 +817,8 @@ export function initThemeUI() {
         const ec = ct && ct.bgEffectColor ? ct.bgEffectColor : (THEME_DEFAULT_EFFECT_COLOR[name] || '');
         const ei = (ct && ct.bgEffectIntensity !== undefined) ? ct.bgEffectIntensity : (THEME_DEFAULT_INTENSITY[name] !== undefined ? THEME_DEFAULT_INTENSITY[name] : 1);
         const sz = (ct && ct.bgEffectSize !== undefined) ? ct.bgEffectSize : 1;
+        const spd = (ct && ct.bgEffectSpeed !== undefined) ? ct.bgEffectSpeed : 1;
+        const cnt = (ct && ct.bgEffectCount !== undefined) ? ct.bgEffectCount : 1;
         const fr = (ct && ct.frosted !== undefined)
           ? !!ct.frosted
           : (THEME_DEFAULT_FROSTED[name] === true);
@@ -743,15 +829,20 @@ export function initThemeUI() {
         applyBgEffectColor(ec);
         applyBgEffectIntensity(ei);
         applyBgEffectSize(sz);
+        applyBgEffectSpeed(spd);
+        applyBgEffectCount(cnt);
         applyFrostedGlass(fr);
         applyNeonGlow(ng);
         applyBgPattern(p);
+        applyThemeDecor(name);
         const fs = document.getElementById('theme-font-select');
         const ds = document.getElementById('theme-density-select');
         const ps = document.getElementById('theme-bg-pattern-select');
         const ecs = document.getElementById('theme-bg-effect-color');
         const eis = document.getElementById('theme-bg-intensity');
         const szs = document.getElementById('theme-bg-size');
+        const sps = document.getElementById('theme-bg-speed');
+        const cnts = document.getElementById('theme-bg-count');
         const frs = document.getElementById('theme-frosted-toggle');
         const ngs = document.getElementById('theme-neon-toggle');
         if (fs) fs.value = f;
@@ -760,9 +851,11 @@ export function initThemeUI() {
         if (ecs) ecs.value = ec || colors.fg || '#9cdef2';
         if (eis) eis.value = String(Math.round(ei * 100));
         if (szs) szs.value = String(Math.round(sz * 100));
+        if (sps) sps.value = String(Math.round(spd * 100));
+        if (cnts) cnts.value = String(Math.round(cnt * 100));
         if (frs) frs.checked = fr;
         if (ngs) ngs.checked = ng;
-        save(name, colors, { font: f, density: d, bgPattern: p, bgEffectColor: ec, bgEffectIntensity: ei, bgEffectSize: sz, frosted: fr, neonGlow: ng });
+        save(name, colors, { font: f, density: d, bgPattern: p, bgEffectColor: ec, bgEffectIntensity: ei, bgEffectSize: sz, bgEffectSpeed: spd, bgEffectCount: cnt, frosted: fr, neonGlow: ng });
       });
     });
     g.querySelectorAll('.theme-delete-btn').forEach(btn => {
@@ -1124,6 +1217,8 @@ export function initThemeUI() {
     ? saved.bgEffectIntensity
     : (saved && THEME_DEFAULT_INTENSITY[saved.name] !== undefined ? THEME_DEFAULT_INTENSITY[saved.name] : 1);
   const _initEffectSize = (saved && saved.bgEffectSize !== undefined) ? saved.bgEffectSize : 1;
+  const _initEffectSpeed = (saved && saved.bgEffectSpeed !== undefined) ? saved.bgEffectSpeed : 1;
+  const _initEffectCount = (saved && saved.bgEffectCount !== undefined) ? saved.bgEffectCount : 1;
   const _initFrosted = (saved && saved.frosted !== undefined)
     ? !!saved.frosted
     : (saved && THEME_DEFAULT_FROSTED[saved.name] === true);
@@ -1134,9 +1229,12 @@ export function initThemeUI() {
   applyBgEffectColor(_initEffectColor);
   applyBgEffectIntensity(_initEffectIntensity);
   applyBgEffectSize(_initEffectSize);
+  applyBgEffectSpeed(_initEffectSpeed);
+  applyBgEffectCount(_initEffectCount);
   applyFrostedGlass(_initFrosted);
   applyNeonGlow(_initNeonGlow);
   applyBgPattern(_initPattern);
+  applyThemeDecor(refName);
 
   const fontSelect = document.getElementById('theme-font-select');
   const densitySelect = document.getElementById('theme-density-select');
@@ -1220,6 +1318,24 @@ export function initThemeUI() {
     sizeSlider.value = String(Math.round(_initEffectSize * 100));
     sizeSlider.addEventListener('input', () => {
       applyBgEffectSize(parseFloat(sizeSlider.value) / 100);
+      const s = getSaved(); if (s) _saveFull(s.name, s.colors);
+    });
+  }
+
+  const speedSlider = document.getElementById('theme-bg-speed');
+  if (speedSlider) {
+    speedSlider.value = String(Math.round(_initEffectSpeed * 100));
+    speedSlider.addEventListener('input', () => {
+      applyBgEffectSpeed(parseFloat(speedSlider.value) / 100);
+      const s = getSaved(); if (s) _saveFull(s.name, s.colors);
+    });
+  }
+
+  const countSlider = document.getElementById('theme-bg-count');
+  if (countSlider) {
+    countSlider.value = String(Math.round(_initEffectCount * 100));
+    countSlider.addEventListener('input', () => {
+      applyBgEffectCount(parseFloat(countSlider.value) / 100);
       const s = getSaved(); if (s) _saveFull(s.name, s.colors);
     });
   }
@@ -1613,14 +1729,18 @@ function _initSynapse() {
     requestAnimationFrame(draw);
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    const countMul = _getEffectCount();
 
     // Spawn
-    if (pulses.length < MAX_PULSES && Math.random() < 0.12) spawnPulse();
+    if (pulses.length < MAX_PULSES * countMul && Math.random() < 0.12 * countMul) spawnPulse();
 
     // Draw pulses as small bright dots with a short trail
     for (let i = pulses.length - 1; i >= 0; i--) {
       const p = pulses[i];
-      p.x += p.dx; p.y += p.dy;
+      p.x += p.dx * speedMul; p.y += p.dy * speedMul;
 
       // Off screen — remove
       if (p.x > W + TRAIL_LEN || p.y > H + TRAIL_LEN) { pulses.splice(i, 1); continue; }
@@ -1632,7 +1752,7 @@ function _initSynapse() {
       grad.addColorStop(0, 'transparent');
       grad.addColorStop(1, c);
       ctx.strokeStyle = grad;
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.35 * intensity;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(tx, ty);
@@ -1640,7 +1760,7 @@ function _initSynapse() {
       ctx.stroke();
 
       // Bright dot at head
-      ctx.globalAlpha = 0.55;
+      ctx.globalAlpha = 0.55 * intensity;
       ctx.fillStyle = c;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
@@ -1697,13 +1817,13 @@ function _initRain() {
     requestAnimationFrame(draw);
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
-    // Intensity also controls rain speed + spawn rate (feels slower/lighter when dim)
     const intenCss = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
-    const inten = isNaN(intenCss) ? 1 : intenCss;
-    const speedMult = 0.35 + inten * 0.65;
+    const intensity = isNaN(intenCss) ? 1 : intenCss;
+    const speedMult = _getEffectSpeed();
+    const countMul = _getEffectCount();
     const sizeMult = _getEffectSize();
 
-    if (drops.length < MAX_DROPS * inten && Math.random() < 0.6 * inten) spawn();
+    if (drops.length < MAX_DROPS * countMul && Math.random() < 0.6 * countMul) spawn();
 
     for (let i = drops.length - 1; i >= 0; i--) {
       const d = drops[i];
@@ -1715,7 +1835,7 @@ function _initRain() {
       grad.addColorStop(0, 'transparent');
       grad.addColorStop(1, c);
       ctx.strokeStyle = grad;
-      ctx.globalAlpha = d.alpha;
+      ctx.globalAlpha = d.alpha * intensity;
       ctx.lineWidth = 1.3 * Math.min(2, Math.max(0.6, sizeMult));
       ctx.beginPath();
       ctx.moveTo(d.x, d.y - effLen);
@@ -1742,30 +1862,26 @@ function _initConstellations() {
   let W, H;
   const STAR_COUNT = 50;
   const CONNECT_DIST = 120;
-  let stars = [];
+  const stars = [];
+
+  function makeStar() {
+    return {
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.15,
+      vy: (Math.random() - 0.5) * 0.15,
+      r: 0.8 + Math.random() * 0.8,
+      phase: Math.random() * Math.PI * 2,
+    };
+  }
 
   function resize() {
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (stars.length === 0) initStars();
-  }
-
-  function initStars() {
-    stars = [];
-    for (let i = 0; i < STAR_COUNT; i++) {
-      stars.push({
-        x: Math.random() * W, y: Math.random() * H,
-        vx: (Math.random() - 0.5) * 0.15,
-        vy: (Math.random() - 0.5) * 0.15,
-        r: 0.8 + Math.random() * 0.8,
-        phase: Math.random() * Math.PI * 2,
-      });
-    }
   }
 
   resize();
-  const _onResize = () => { resize(); initStars(); };
+  const _onResize = () => resize();
   window.addEventListener('resize', _onResize);
 
   function getColor() {
@@ -1781,13 +1897,17 @@ function _initConstellations() {
       return;
     }
     requestAnimationFrame(draw);
-    t += 0.01;
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    _reconcileCount(stars, Math.round(STAR_COUNT * _getEffectCount()), makeStar);
+    t += 0.01 * speedMul;
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
 
     // Move stars gently
     for (const s of stars) {
-      s.x += s.vx; s.y += s.vy;
+      s.x += s.vx * speedMul; s.y += s.vy * speedMul;
       if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
       if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
     }
@@ -1801,7 +1921,7 @@ function _initConstellations() {
         const dy = stars[i].y - stars[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < CONNECT_DIST) {
-          ctx.globalAlpha = (1 - dist / CONNECT_DIST) * 0.15;
+          ctx.globalAlpha = (1 - dist / CONNECT_DIST) * 0.15 * intensity;
           ctx.beginPath();
           ctx.moveTo(stars[i].x, stars[i].y);
           ctx.lineTo(stars[j].x, stars[j].y);
@@ -1814,7 +1934,7 @@ function _initConstellations() {
     ctx.fillStyle = c;
     for (const s of stars) {
       const twinkle = 0.5 + 0.5 * Math.sin(t * 2 + s.phase);
-      ctx.globalAlpha = 0.15 + twinkle * 0.25;
+      ctx.globalAlpha = (0.15 + twinkle * 0.25) * intensity;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
@@ -1846,12 +1966,13 @@ function _initPerlinFlow() {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H, t = 0;
+  const PARTICLE_COUNT = 200;
   const particles = [];
+  function makeParticle() { return { x: Math.random() * W, y: Math.random() * H, life: Math.random() }; }
   function resize() {
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (particles.length === 0) for (let i = 0; i < 200; i++) particles.push({ x: Math.random() * W, y: Math.random() * H, life: Math.random() });
   }
   resize();
   const _onResize = () => resize();
@@ -1872,17 +1993,21 @@ function _initPerlinFlow() {
   function draw() {
     if (!document.body.classList.contains('bg-pattern-perlin-flow')) { window.removeEventListener('resize', _onResize); canvas.remove(); return; }
     requestAnimationFrame(draw);
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    _reconcileCount(particles, Math.round(PARTICLE_COUNT * _getEffectCount()), makeParticle);
     ctx.fillStyle = getFade();
     ctx.fillRect(0, 0, W, H);
     const c = getColor();
     particles.forEach(p => {
       const n = _bgSmoothNoise(p.x * 0.004 + t * 0.0008, p.y * 0.004 + 100);
       const angle = n * Math.PI * 6;
-      const speed = 1 + _bgSmoothNoise(p.x * 0.003, p.y * 0.003 + 50) * 1.5;
+      const speed = (1 + _bgSmoothNoise(p.x * 0.003, p.y * 0.003 + 50) * 1.5) * speedMul;
       p.x += Math.cos(angle) * speed; p.y += Math.sin(angle) * speed; p.life -= 0.001;
       if (p.life <= 0 || p.x < 0 || p.x > W || p.y < 0 || p.y > H) { p.x = Math.random() * W; p.y = Math.random() * H; p.life = 1; }
       ctx.beginPath(); ctx.arc(p.x, p.y, 1, 0, Math.PI * 2);
-      ctx.fillStyle = c; ctx.globalAlpha = p.life * 0.15; ctx.fill();
+      ctx.fillStyle = c; ctx.globalAlpha = p.life * 0.15 * intensity; ctx.fill();
     });
     ctx.globalAlpha = 1;
     t++;
@@ -1903,6 +2028,7 @@ function _initPetals() {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H;
+  const PETAL_COUNT = 30;
   const petals = [];
   function makePetal() {
     return {
@@ -1917,7 +2043,7 @@ function _initPetals() {
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (petals.length === 0) for (let i = 0; i < 30; i++) { const p = makePetal(); p.y = Math.random() * H; petals.push(p); }
+    if (petals.length === 0) for (let i = 0; i < PETAL_COUNT; i++) { const p = makePetal(); p.y = Math.random() * H; petals.push(p); }
   }
   resize();
   const _onResize = () => resize();
@@ -1929,16 +2055,20 @@ function _initPetals() {
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
     const sz = _getEffectSize();
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    _reconcileCount(petals, Math.round(PETAL_COUNT * _getEffectCount()), () => { const p = makePetal(); p.y = Math.random() * H; return p; });
     petals.forEach(p => {
-      p.y += p.vy; p.rot += p.vr; p.drift += p.driftSpeed;
+      p.y += p.vy * speedMul; p.rot += p.vr * speedMul; p.drift += p.driftSpeed * speedMul;
       p.x += Math.sin(p.drift) * p.wobble;
       if (p.y > H + 15) Object.assign(p, makePetal());
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.globalAlpha = 0.2;
+      ctx.globalAlpha = 0.2 * intensity;
       // petal shape — two overlapping ellipses
       ctx.fillStyle = c;
       ctx.beginPath(); ctx.ellipse(-p.size * 0.2 * sz, 0, p.size * 0.6 * sz, p.size * 0.3 * sz, 0.3, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 0.15;
+      ctx.globalAlpha = 0.15 * intensity;
       ctx.beginPath(); ctx.ellipse(p.size * 0.2 * sz, 0, p.size * 0.6 * sz, p.size * 0.3 * sz, -0.3, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
@@ -1960,6 +2090,7 @@ function _initSparkles() {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H;
+  const SPARK_COUNT = 35;
   const sparkles = [];
   function makeSpark() {
     return { x: Math.random() * W, y: Math.random() * H, size: 2 + Math.random() * 5, phase: Math.random() * Math.PI * 2, speed: 0.015 + Math.random() * 0.03, life: 0.5 + Math.random() * 0.5 };
@@ -1968,7 +2099,7 @@ function _initSparkles() {
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (sparkles.length === 0) for (let i = 0; i < 35; i++) sparkles.push(makeSpark());
+    if (sparkles.length === 0) for (let i = 0; i < SPARK_COUNT; i++) sparkles.push(makeSpark());
   }
   resize();
   const _onResize = () => resize();
@@ -1991,10 +2122,14 @@ function _initSparkles() {
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
     const sizeMult = _getEffectSize();
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    _reconcileCount(sparkles, Math.round(SPARK_COUNT * _getEffectCount()), makeSpark);
     sparkles.forEach(s => {
-      s.phase += s.speed;
+      s.phase += s.speed * speedMul;
       const twinkle = Math.sin(s.phase);
-      const alpha = Math.max(0, twinkle) * 0.25 * s.life;
+      const alpha = Math.max(0, twinkle) * 0.25 * s.life * intensity;
       const scale = 0.5 + Math.max(0, twinkle) * 0.5;
       if (alpha > 0.01) drawStar(s.x, s.y, s.size * scale * sizeMult, c, alpha);
       // respawn when cycle completes
@@ -2018,6 +2153,7 @@ function _initEmbers() {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H;
+  const EMBER_COUNT = 60;
   const embers = [];
   function makeEmber() {
     return {
@@ -2037,7 +2173,7 @@ function _initEmbers() {
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (embers.length === 0) {
-      for (let i = 0; i < 60; i++) { const e = makeEmber(); e.y = Math.random() * H; e.life = Math.random() * e.maxLife; embers.push(e); }
+      for (let i = 0; i < EMBER_COUNT; i++) { const e = makeEmber(); e.y = Math.random() * H; e.life = Math.random() * e.maxLife; embers.push(e); }
     }
   }
   resize();
@@ -2058,6 +2194,11 @@ function _initEmbers() {
       return;
     }
     requestAnimationFrame(draw);
+    const countMul = _getEffectCount();
+    const target = Math.round(EMBER_COUNT * countMul);
+    const speedMul = _getEffectSpeed();
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
     // Fade previous frame (destination-out keeps canvas transparent where no embers)
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
@@ -2066,13 +2207,13 @@ function _initEmbers() {
     const color = getColor();
     for (let i = embers.length - 1; i >= 0; i--) {
       const e = embers[i];
-      e.wobble += 0.03;
-      e.x += e.vx + Math.sin(e.wobble) * 0.5;
-      e.y += e.vy;
+      e.wobble += 0.03 * speedMul;
+      e.x += (e.vx + Math.sin(e.wobble) * 0.5) * speedMul;
+      e.y += e.vy * speedMul;
       e.life++;
       if (e.life > e.maxLife || e.y < -20) {
         embers.splice(i, 1);
-        if (embers.length < 70) embers.push(makeEmber());
+        if (embers.length < target) embers.push(makeEmber());
         continue;
       }
       if (!e.spark && Math.random() < 0.003) e.spark = true;
@@ -2080,7 +2221,7 @@ function _initEmbers() {
       const fade = Math.min(1, Math.min(lifeRatio * 4, (1 - lifeRatio) * 3));
       const sz = _getEffectSize();
       const r = e.r * (e.spark ? 2.4 : 1) * sz;
-      const a = (e.spark ? 0.9 : 0.55) * fade;
+      const a = (e.spark ? 0.9 : 0.55) * fade * intensity;
       const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 4);
       g.addColorStop(0, rgba(color, a));
       g.addColorStop(0.4, rgba(color, a * 0.3));
@@ -2093,7 +2234,7 @@ function _initEmbers() {
       ctx.fill();
       e.spark = false;
     }
-    if (Math.random() < 0.015) {
+    if (embers.length < target && Math.random() < 0.015) {
       const bx = Math.random() * W;
       for (let i = 0; i < 5; i++) {
         const e = makeEmber();
@@ -2138,22 +2279,24 @@ function _initAurora() {
       return;
     }
     requestAnimationFrame(draw);
-    t += 0.004;
-    ctx.clearRect(0, 0, W, H);
-    const c = getColor();
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    const sz = _getEffectSize();
+    t += 0.004 * speedMul;
+    ctx.clearRect(0, 0, W, H);
+    const c = getColor();
     const layers = 4;
     for (let l = 0; l < layers; l++) {
       const phase = t + l * 2.1;
-      const amp = 30 + l * 18;
+      const amp = (30 + l * 18) * sz;
       const freq = 0.004 - l * 0.0003;
       const yOff = H * 0.15 + l * (H * 0.12);
       ctx.beginPath();
       ctx.moveTo(0, H);
       for (let x = 0; x <= W; x += 4) {
-        const y = yOff + Math.sin(x * freq + phase) * amp * intensity
-          + Math.sin(x * freq * 2.3 + phase * 1.7) * amp * 0.4 * intensity;
+        const y = yOff + Math.sin(x * freq + phase) * amp
+          + Math.sin(x * freq * 2.3 + phase * 1.7) * amp * 0.4;
         ctx.lineTo(x, y);
       }
       ctx.lineTo(W, H);
@@ -2211,14 +2354,14 @@ function _initMatrix() {
     requestAnimationFrame(draw);
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
-    const speedMult = 0.3 + intensity * 0.7;
+    const speedMult = _getEffectSpeed();
     ctx.fillStyle = 'rgba(0,0,0,0.05)';
     ctx.fillRect(0, 0, W, H);
     const c = getColor();
     ctx.font = fontSize + 'px monospace';
     for (let i = 0; i < drops.length; i++) {
       const ch = chars[Math.floor(Math.random() * chars.length)];
-      const alpha = 0.3 + Math.random() * 0.7;
+      const alpha = (0.3 + Math.random() * 0.7) * intensity;
       ctx.fillStyle = c;
       ctx.globalAlpha = alpha * 0.6;
       ctx.fillText(ch, i * fontSize, drops[i]);
@@ -2262,16 +2405,17 @@ function _initWaves() {
       return;
     }
     requestAnimationFrame(draw);
-    t += 0.008;
-    ctx.clearRect(0, 0, W, H);
-    const c = getColor();
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
     const sz = _getEffectSize();
+    const speedMul = _getEffectSpeed();
+    t += 0.008 * speedMul;
+    ctx.clearRect(0, 0, W, H);
+    const c = getColor();
     const numWaves = 3;
     for (let w = 0; w < numWaves; w++) {
       const phase = t + w * 2.5;
-      const amp = (20 + w * 10) * intensity * sz;
+      const amp = (20 + w * 10) * sz;
       const freq = 0.008 - w * 0.001;
       const yBase = H * (0.4 + w * 0.12);
       ctx.beginPath();
@@ -2307,6 +2451,7 @@ function _initNebula() {
   const ctx = canvas.getContext('2d');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let W, H, t = 0;
+  const BLOB_COUNT = 8;
   const blobs = [];
   function makeBlob() {
     return {
@@ -2326,7 +2471,7 @@ function _initNebula() {
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (blobs.length === 0) for (let i = 0; i < 8; i++) blobs.push(makeBlob());
+    if (blobs.length === 0) for (let i = 0; i < BLOB_COUNT; i++) blobs.push(makeBlob());
   }
   resize();
   const _onResize = () => resize();
@@ -2345,10 +2490,12 @@ function _initNebula() {
       return;
     }
     requestAnimationFrame(draw);
-    t += 0.002;
     const sz = _getEffectSize();
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
+    const speedMul = _getEffectSpeed();
+    t += 0.002 * speedMul;
+    _reconcileCount(blobs, Math.round(BLOB_COUNT * _getEffectCount()), makeBlob);
     ctx.clearRect(0, 0, W, H);
     const bg = hexToRgb(getBg()) || { r: 10, g: 22, b: 40 };
     // Faint radial gradient to blend with bg
@@ -2358,10 +2505,10 @@ function _initNebula() {
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
     for (const b of blobs) {
-      b.x += b.vx; b.y += b.vy;
+      b.x += b.vx * speedMul; b.y += b.vy * speedMul;
       if (b.x < -0.2) b.x = 1.2; if (b.x > 1.2) b.x = -0.2;
       if (b.y < -0.2) b.y = 1.2; if (b.y > 1.2) b.y = -0.2;
-      b.pulse += b.pulseSpeed;
+      b.pulse += b.pulseSpeed * speedMul;
       const pulseAlpha = 0.7 + 0.3 * Math.sin(b.pulse);
       const cx = b.x * W; const cy = b.y * H;
       const radius = b.r * Math.max(W, H) * sz * 0.4;
@@ -2421,12 +2568,14 @@ function _initRipples() {
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
     const sz = _getEffectSize();
+    const speedMul = _getEffectSpeed();
+    const countMul = _getEffectCount();
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
-    if (ripples.length < MAX_RIPPLES && Math.random() < 0.03 * intensity) spawn();
+    if (ripples.length < MAX_RIPPLES * countMul && Math.random() < 0.03 * countMul) spawn();
     for (let i = ripples.length - 1; i >= 0; i--) {
       const r = ripples[i];
-      r.radius += r.speed * sz;
+      r.radius += r.speed * sz * speedMul;
       if (r.radius > r.maxRadius) { ripples.splice(i, 1); continue; }
       const progress = r.radius / r.maxRadius;
       const a = r.alpha * (1 - progress) * intensity;
@@ -2520,10 +2669,10 @@ function _initHexGrid() {
       return;
     }
     requestAnimationFrame(draw);
-    t += 0.025;
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
     const sz = _getEffectSize();
+    t += 0.025 * _getEffectSpeed();
     ctx.clearRect(0, 0, W, H);
     for (const cell of cells) {
       const breathe = 0.5 + 0.5 * Math.sin(cell.phase + t * 0.6);
@@ -2535,9 +2684,89 @@ function _initHexGrid() {
   }
   draw();
 }
+// ── Bats — silhouettes flapping across the sky ──
+function _initBats() {
+  if (document.getElementById('bats-canvas')) return;
+  const canvas = document.createElement('canvas');
+  canvas.id = 'bats-canvas';
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+  // Decorative background effect — hide from assistive tech so screen readers
+  // don't announce an empty canvas and axe's "region" rule doesn't flag it.
+  canvas.setAttribute('aria-hidden', 'true');
+  document.body.prepend(canvas);
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let W, H;
+  const BAT_COUNT = 9;
+  const bats = [];
+  function makeBat() {
+    return {
+      x: -40, y: 20 + Math.random() * (H * 0.5),
+      span: 18 + Math.random() * 22,
+      speed: 0.4 + Math.random() * 0.7,
+      phase: Math.random() * Math.PI * 2, flapSpeed: 0.09 + Math.random() * 0.06,
+      bobPhase: Math.random() * Math.PI * 2, bobSpeed: 0.015 + Math.random() * 0.015, bobAmp: 8 + Math.random() * 14,
+      alpha: 0.25 + Math.random() * 0.35
+    };
+  }
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (bats.length === 0) for (let i = 0; i < BAT_COUNT; i++) { const b = makeBat(); b.x = Math.random() * W; bats.push(b); }
+  }
+  resize();
+  const _onResize = () => resize();
+  window.addEventListener('resize', _onResize);
+  function getColor() { const s = getComputedStyle(document.documentElement); return s.getPropertyValue('--bg-effect-color').trim() || s.getPropertyValue('--fg').trim() || '#9cdef2'; }
+  function drawBat(x, y, span, flap, alpha, color) {
+    const lift = flap * span * 0.3;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-span * 0.22, -lift * 0.5, -span * 0.5, -lift);
+    ctx.quadraticCurveTo(-span * 0.32, span * 0.06, -span * 0.14, span * 0.03);
+    ctx.quadraticCurveTo(0, span * 0.12, 0, 0);
+    ctx.quadraticCurveTo(0, span * 0.12, span * 0.14, span * 0.03);
+    ctx.quadraticCurveTo(span * 0.32, span * 0.06, span * 0.5, -lift);
+    ctx.quadraticCurveTo(span * 0.22, -lift * 0.5, 0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  function draw() {
+    if (!document.body.classList.contains('bg-pattern-bats')) {
+      window.removeEventListener('resize', _onResize);
+      canvas.remove();
+      return;
+    }
+    requestAnimationFrame(draw);
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    const sz = _getEffectSize();
+    const speedMul = _getEffectSpeed();
+    _reconcileCount(bats, Math.round(BAT_COUNT * _getEffectCount()), () => { const b = makeBat(); b.x = Math.random() * W; return b; });
+    ctx.clearRect(0, 0, W, H);
+    const c = getColor();
+    bats.forEach(b => {
+      b.x += b.speed * speedMul;
+      b.phase += b.flapSpeed * speedMul;
+      b.bobPhase += b.bobSpeed * speedMul;
+      if (b.x - b.span > W + 40) Object.assign(b, makeBat());
+      const y = b.y + Math.sin(b.bobPhase) * b.bobAmp;
+      drawBat(b.x, y, b.span * sz, Math.sin(b.phase), b.alpha * intensity, c);
+    });
+    ctx.globalAlpha = 1;
+  }
+  draw();
+}
 const themeModule = { initThemeUI, togglePopup, closePopup, makeDraggable,
                        THEMES, applyColors, applyFontDensity, applyBgPattern,
                        applyBgEffectColor, applyBgEffectIntensity, applyBgEffectSize,
+                       applyBgEffectSpeed, applyBgEffectCount, applyThemeDecor,
                        applyFrostedGlass, applyNeonGlow,
                        save, getSaved, saveCustomTheme, deleteCustomTheme,
                        getCustomThemes };
