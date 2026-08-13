@@ -9,6 +9,7 @@ import termios
 import time
 import collections
 from typing import Optional, Callable, Awaitable, Tuple, Dict
+from core.platform_compat import IS_WINDOWS, find_bash
 from src.constants import MAX_OUTPUT_CHARS
 
 DEFAULT_BASH_TIMEOUT = 60 * 60     # 1 hour
@@ -226,6 +227,27 @@ def _redact(text: str, secret: Optional[str]) -> str:
 # started in one bash call are still there for the next one. Falls back to the
 # plain one-shot subprocess path (with the sudo/pty handling above) whenever
 # there's no session_id or tmux isn't installed.
+
+async def _create_bash_subprocess(command: str, **kwargs):
+    """Start the agent shell with Bash semantics on every supported OS.
+
+    ``asyncio.create_subprocess_shell`` delegates to ``cmd.exe`` on native
+    Windows.  That contradicts the Bash tool contract and makes POSIX commands
+    such as ``pwd``, ``ls -la``, and ``cat`` unreliable even when the launcher
+    has found Git Bash.  Pass the selected workspace as a structural ``cwd``
+    argument; Git Bash inherits that native Windows directory and exposes it
+    using its normal ``/c/...`` representation.
+    """
+    if IS_WINDOWS:
+        bash = find_bash()
+        if not bash:
+            raise RuntimeError(
+                "Git Bash is required for the Bash tool on Windows; "
+                "install Git for Windows and restart Odysseus"
+            )
+        return await asyncio.create_subprocess_exec(bash, "-c", command, **kwargs)
+    return await asyncio.create_subprocess_shell(command, **kwargs)
+
 
 def _tmux_session_name(session_id: Optional[str]) -> str:
     raw = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(session_id or "default")).strip("-")
@@ -502,8 +524,10 @@ class BashTool:
         # conversation) when available. No sudo-prompt handling in this path --
         # a real terminal is there, but nothing feeds it a password -- so this
         # is skipped whenever the command needs sudo and falls through to the
-        # one-shot path below, which does handle it.
-        if session_id and shutil.which("tmux") and not _mentions_sudo(command):
+        # one-shot path below, which does handle it. Also skipped on native
+        # Windows: a stray MSYS/Cygwin tmux.exe hard-codes /bin/bash and can't
+        # safely consume a native cwd -- the Git Bash launcher below handles it.
+        if session_id and shutil.which("tmux") and not IS_WINDOWS and not _mentions_sudo(command):
             stdout, stderr, rc, timed_out = await _run_tmux_bash(
                 command,
                 session_id=str(session_id),
@@ -556,14 +580,17 @@ class BashTool:
                 # first sudo, so a chained second one needs its own.
                 stdin_payload = ((password + "\n") * max(1, sudo_count)).encode()
 
-        proc = await asyncio.create_subprocess_shell(
-            command,
-            stdin=asyncio.subprocess.PIPE if stdin_payload is not None else None,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=_subproc_env,
-            cwd=cwd,
-        )
+        try:
+            proc = await _create_bash_subprocess(
+                command,
+                stdin=asyncio.subprocess.PIPE if stdin_payload is not None else None,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=_subproc_env,
+                cwd=cwd,
+            )
+        except RuntimeError as e:
+            return {"error": f"bash: {e}", "exit_code": 1}
         if stdin_payload is not None and proc.stdin is not None:
             try:
                 proc.stdin.write(stdin_payload)
