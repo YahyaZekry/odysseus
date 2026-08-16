@@ -42954,3 +42954,32 @@ body.neon-glow #sidebar {
   0%, 100% { transform: rotate(-12deg); }
   50% { transform: rotate(10deg); }
 }
+
+/* ── Gotham scene ──
+   A generated, layered city (static/icons/gotham-scene.svg): three depth
+   layers with atmospheric perspective, lit windows, moon + glow, and
+   Batman perched on the near tower. Used as a background-image rather
+   than a mask so it keeps its own internal tones -- a single flat
+   silhouette read as cheap at this size.
+   xMidYMax slice in the SVG anchors it bottom-centre and crops the sides
+   instead of stretching, so it stays sharp at any window width. */
+.gotham-fx-skyline {
+  /* Fills the layer rather than a fixed vh band: the image is placed
+     bottom-anchored at 100% width, so a short element clips its own top --
+     which is exactly where the moon and the figure live. */
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  /* contain, not cover: cover crops the sky and cuts the moon and the
+     figure out of frame. The SVG's own sky gradient already fades to
+     transparent at the top, so no extra CSS mask is needed. */
+  /* ?v= is this project's existing cache-busting convention (see the
+     ?v=... suffixes on the script tags in index.html). Needed here
+     because sw.js serves /static images cache-first and the server
+     sends no cache-control on them, so a changed scene would keep
+     rendering the stale one until the SW cache was purged. */
+  background: url("/static/icons/gotham-scene.svg?v=2") bottom center / 100% auto no-repeat;
+}
+@media (max-width: 768px) {
+  .gotham-fx-skyline { opacity: 0.45; }
+}

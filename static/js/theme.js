@@ -546,7 +546,8 @@ export function applyThemeDecor(name) {
   el.id = 'gotham-fx';
   el.setAttribute('aria-hidden', 'true');
   el.innerHTML = '<div class="gotham-fx-beam"></div>'
-    + '<div class="gotham-fx-cloud c1"></div><div class="gotham-fx-cloud c2"></div><div class="gotham-fx-cloud c3"></div>';
+    + '<div class="gotham-fx-cloud c1"></div><div class="gotham-fx-cloud c2"></div><div class="gotham-fx-cloud c3"></div>'
+    + '<div class="gotham-fx-skyline"></div>';
   document.body.prepend(el);
 }
 
