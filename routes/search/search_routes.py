@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 import time
 
 from services.search import get_search_config, comprehensive_web_search, PROVIDER_INFO
+from services.search.providers import PROVIDER_REGISTRY
 from services.search.core import _call_provider
 from services.search.providers import _get_provider_key, _get_search_instance
 
@@ -68,19 +69,29 @@ def setup_search_routes(config) -> APIRouter:
     @router.get("/api/search/providers")
     async def list_search_providers():
         """Return available search providers with config status."""
+        # Emit the full ProviderInfo metadata, not just id/label/available.
+        # The settings UI renders the API-key row from `needs_key` and writes
+        # to `key_setting` (static/js/settings.js), so a trimmed payload
+        # leaves every key-requiring provider with no way to enter its key.
         providers = []
-        for pid, (label, needs_key, needs_url) in PROVIDER_INFO.items():
+        for pid, info in PROVIDER_REGISTRY.items():
             if pid == "disabled":
                 continue
             available = True
-            if needs_key and not _get_provider_key(pid):
+            if info.needs_key and not _get_provider_key(pid):
                 available = False
-            if needs_url and pid == "searxng" and not _get_search_instance():
+            if info.needs_url and pid == "searxng" and not _get_search_instance():
                 available = False
             providers.append({
-                "id": pid,
-                "label": label,
+                "id": info.id or pid,
+                "label": info.label,
                 "available": available,
+                "needs_key": info.needs_key,
+                "needs_url": info.needs_url,
+                "key_setting": info.key_setting,
+                "env_var": info.env_var,
+                "hint": info.hint,
+                "has_additional": info.has_additional,
             })
         return providers
 
