@@ -129,6 +129,18 @@ function _syncCustomThemesToServer(ct) {
 }
 
 // --- Syntax color derivation from theme base colors ---
+// WCAG relative luminance (0..1). Used to choose readable text for content
+// painted on a --red background: --red is theme-configurable, and a light
+// accent needs dark text where a darker one reads fine with white.
+// HSL lightness is not a substitute -- #e06c75 and #f2c14e sit at nearly
+// identical HSL-L but 0.27 vs 0.56 luminance, since the WCAG formula
+// weights green (0.7152) far above red (0.2126) and blue (0.0722).
+function _relativeLuminance(hex) {
+  const { r, g, b } = hexToRgb(hex) || { r: 0, g: 0, b: 0 };
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
 function hexToHSL(hex) {
   const rgb = hexToRgb(hex) || { r: 0, g: 0, b: 0 };
   const r = rgb.r / 255;
@@ -261,6 +273,10 @@ export function applyColors(colors) {
   s.setProperty('--panel', colors.panel);
   s.setProperty('--border', colors.border);
   if (colors.red) s.setProperty('--red', colors.red);
+  // Contrast of white against --red. Below ~3:1 (a light or strongly
+  // saturated accent) dark text is far more legible than white.
+  const _whiteOnRed = 1.05 / (_relativeLuminance(colors.red || '#e06c75') + 0.05);
+  s.setProperty('--on-accent', _whiteOnRed < 3 ? '#171717' : '#fff');
 
   // Keep the mobile browser toolbar / status bar matched to the theme bg
   // (same as the early head-script does on first paint).
