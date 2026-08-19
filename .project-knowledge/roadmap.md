@@ -104,3 +104,82 @@ Sidebar categorization and the Email 3-pane redesign are committed and pushed (`
 - [ ] **Decide whether to unify the 3 other email-reader header blocks** (`emailLibrary.js`) with the 2026-07-26 icon-only/consolidated-Reply-dropdown redesign — one is confirmed-dead `_toggleCardPreview`-era code (safe to just delete), the other two are the "open email in a new tab" and "open in a new window" views, which still show the old 6-separate-icon layout. Left alone since the user's feedback was specifically about the 3-pane reading pane. *(added 2026-07-26)*
 - [ ] **ChromaDB is currently unreachable on this install** (`localhost:8100` — `ToolIndex init failed`, retries every 30s). Semantic tool retrieval is therefore off across every domain, leaving only the deterministic `_KEYWORD_HINTS` fallback; that's what silently stripped `bash` from the toolset until it was made unconditional on 2026-07-28 (see [[history]]). RAG/personal-doc search is presumably degraded too. Either start the service (`docker compose up chromadb`) or decide the app should run keyword-only by design. **Note the general lesson from the `bash` saga**: any tool reachable *only* via semantic retrieval silently disappears while this is down, and the failure looks like the agent being broken rather than a service being offline — worth auditing which other tools are in that position, and/or surfacing "semantic retrieval unavailable" somewhere visible instead of only in the server log. *(added 2026-07-27, updated 2026-07-28)*
 - [ ] **Decide whether the collapsed icon-rail deserves badges on other sections too** — email (`.rail-email-badge`) and notes (`.rail-notes-badge`) now both show unread/fired counts in the collapsed rail; the pattern is proven and cheap to replicate (see [[history]], 2026-08-02) if the same "collapsed view has less info than expanded" gap turns out to affect other sections. Not investigated elsewhere yet. *(added 2026-08-02)*
+
+---
+
+## Planned Features — retrieval & knowledge-workspace track
+
+> Drafted 2026-08-19 after surveying [SurfSense](https://github.com/MODSetter/SurfSense)
+> (15.9k stars, NotebookLM alternative) for ideas worth having here.
+>
+> **Licence guardrail — read before writing any of this.** SurfSense is
+> Apache-2.0 *except* `surfsense_backend/app/proprietary/`, which is
+> **BUSL-1.1** (source-available, not open source) and holds
+> `platforms/` (reddit, instagram, tiktok, youtube, google_search,
+> google_maps, amazon, indeed, walmart) and `web_crawler/`. Odysseus is
+> **AGPL-3.0**. Apache-2.0 → AGPL-3.0 is a legal one-way import *with*
+> attribution, but **nothing below should be copied**: these are feature
+> ideas, which aren't copyrightable, and every item is to be written from
+> scratch against this codebase's own stack. Do not lift code, and do not
+> touch the BUSL directories at all. Where their design is Postgres-shaped
+> it wouldn't port anyway — this project is SQLite.
+
+### P1 — Hybrid retrieval with Reciprocal Rank Fusion *(added: 2026-08-19)*
+
+- [ ] Rank vector hits and full-text hits separately, then fuse by RRF
+      (`score = Σ 1/(k + rank)`, k≈60) instead of relying on vectors alone.
+- **Why this one first:** `src/rag_vector.py` is pure-vector against
+      **ChromaDB running as a separate service**, and that service has been
+      unreachable on this install for weeks (see Active TODOs + [[history]]
+      2026-07-27). When it's down, semantic tool retrieval, RAG and
+      personal-doc search silently degrade with no user-visible signal —
+      that's the single most-repeated failure in this project's history.
+      Fusing in a keyword arm means search *degrades* instead of dying.
+- **We already have both halves:** SQLite **FTS5** is live
+      (`chat_messages_fts`, `core/database.py:2320`, with an availability
+      probe at :2312) and embeddings exist via fastembed. Missing piece is
+      the fusion layer plus an FTS index over document/memory chunks.
+- Keep ChromaDB as an optional accelerator, not a hard dependency.
+
+### P2 — Reranking + cited answers in normal RAG *(added: 2026-08-19)*
+
+- [ ] Add a rerank pass over fused candidates before they hit the prompt.
+      No cross-encoder/reranker exists today (only model-capability
+      plumbing mentions the word).
+- [ ] Carry chunk provenance through to the answer so ordinary chat/RAG
+      replies cite sources. Citations currently exist only in
+      `src/deep_research.py`; regular RAG answers are uncited.
+- Pairs with the existing open item "surface the actually-used search
+  provider in the UI" — both are about making retrieval legible.
+
+### P3 — Watch-a-folder auto-indexing *(added: 2026-08-19)*
+
+- [ ] Point Odysseus at a local directory and keep it indexed as it
+      changes. No file-watching exists today (no watchdog/inotify anywhere).
+- Directly useful here: the maintainer keeps an Obsidian vault, and this
+  turns it into a searchable knowledge base without manual uploads.
+- Needs P5's hashing to avoid re-embedding unchanged files on every scan.
+
+### P4 — Audio overview / two-host podcast from a document *(added: 2026-08-19)*
+
+- [ ] Generate a short scripted two-voice audio summary of a document,
+      folder, or research report.
+- Cheap to reach: `services/tts/tts_service.py` and `routes/tts_routes.py`
+  already exist, so this is a script-generation + stitching layer, not new
+  infrastructure.
+
+### P5 — Content-hash incremental indexing *(added: 2026-08-19)*
+
+- [ ] Hash file/chunk content and skip unchanged work on re-index;
+      reconcile chunks on update rather than re-embedding whole documents.
+- Enabling work for P1 and P3 more than a feature in itself.
+
+### Considered and rejected
+
+- ~~Live scraping connectors (Reddit/YouTube/Instagram/TikTok/Maps/etc.)~~ —
+  these are the BUSL-licensed part, and Odysseus already has a pluggable
+  10-provider web-search registry plus MCP for third-party reach.
+- ~~Podcast/slides/report "deliverable studio" beyond P4~~ — server-side PDF
+  export is already tracked as its own open item; the rest is scope creep.
+- ~~Real-time multiplayer, RBAC roles, desktop global-shortcut assist~~ —
+  Odysseus is single-user and local-first; these change the product's shape.
