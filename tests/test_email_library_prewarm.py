@@ -51,8 +51,22 @@ def _function_source(name: str) -> str:
     quote = None
     escaped = False
     template_depth = 0
-    for index in range(brace, len(text)):
+    comment = None  # "line" or "block"
+    index = brace
+    while index < len(text):
         char = text[index]
+        if comment:
+            # Comments are skipped wholesale. Without this an apostrophe in
+            # prose ("isn't", "don't") opens a phantom string that swallows
+            # every brace until the next apostrophe, and the walk never
+            # returns to depth 0.
+            if comment == "line" and char == "\n":
+                comment = None
+            elif comment == "block" and char == "*" and text[index + 1 : index + 2] == "/":
+                comment = None
+                index += 1
+            index += 1
+            continue
         if quote:
             if escaped:
                 escaped = False
@@ -64,6 +78,15 @@ def _function_source(name: str) -> str:
                 template_depth += 1
             elif quote == "`" and char == "}" and template_depth:
                 template_depth -= 1
+            index += 1
+            continue
+        if char == "/" and text[index + 1 : index + 2] == "/":
+            comment = "line"
+            index += 2
+            continue
+        if char == "/" and text[index + 1 : index + 2] == "*":
+            comment = "block"
+            index += 2
             continue
         if char in ("'", '"', "`"):
             quote = char
@@ -73,6 +96,7 @@ def _function_source(name: str) -> str:
             depth -= 1
             if depth == 0:
                 return text[start:index + 1]
+        index += 1
     raise AssertionError(f"unterminated function {name}")
 
 
