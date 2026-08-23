@@ -144,7 +144,9 @@ jobs:
           fi
 
           if [ -n "$SKIPPED" ]; then
-            list=$(printf -- '- `%s`\n' $SKIPPED)
+            # $SKIPPED is a newline-separated path list, so the split is wanted here.
+            # shellcheck disable=SC2086
+            list=$(printf -- "- \`%s\`\n" $SKIPPED)
             note="**Workflow files not synced.** The sync token has no \`workflow\` permission, so these upstream changes to \`.github/workflows/\` were left out and this fork's copies kept:"
             body=$(printf '%s\n\n---\n\n%s\n\n%s\n\nApply them by hand if you want them.' \
               "$body" "$note" "$list")
