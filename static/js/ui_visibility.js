@@ -53,6 +53,23 @@ export const UI_VIS_MAP = {
   'rail-new-chat':       '#rail-new-session',
 };
 
+// Which category section each tool actually lives under in this fork's
+// sidebar. Upstream nests every tool in one #tools-section container; the
+// 2026-07-24 restructure split that into categories, so a tool's parent is
+// one of these rather than #tools-section (which has no node here at all).
+export const UI_VIS_TOOL_PARENT = {
+  'tool-research':  'ai-tools-section',
+  'tool-compare':   'ai-tools-section',
+  'tool-memory':    'ai-tools-section',
+  'tool-library':   'ai-tools-section',
+  'tool-gallery':   'ai-tools-section',
+  'tool-cookbook':  'ai-tools-section',
+  'tool-calendar':  'personal-section',
+  'tool-notes':     'personal-section',
+  'tool-tasks':     'personal-section',
+  'tool-theme':     'personal-section',
+};
+
 // Keys hidden by default on first run (no localStorage yet).
 export const UI_VIS_DEFAULT_OFF = new Set(['models-section', 'rag-toggle-btn', 'text-emojis', 'chat-fullwidth']);
 
@@ -61,25 +78,30 @@ export const UI_VIS_DEFAULT_OFF = new Set(['models-section', 'rag-toggle-btn', '
  * given saved state. Pure: no DOM, no localStorage — app.js applies the result.
  *
  * A key is visible when its stored value is not `false`, defaulting to on
- * unless it is in UI_VIS_DEFAULT_OFF. Per-tool entries also require the Tools
- * section to be on: hiding Tools hides every tool, mirroring the full sidebar
- * where the #tools-section container already hides them (the rail has no
- * container, so this rule keeps it in sync).
+ * unless it is in UI_VIS_DEFAULT_OFF. Per-tool entries also require both the
+ * master Tools toggle and their own category section (UI_VIS_TOOL_PARENT) to
+ * be on: hiding either hides the tool, mirroring the full sidebar where the
+ * containing section already hides them (the rail has no container, so this
+ * rule keeps it in sync).
  *
  * @param {Record<string, boolean>} state
  * @returns {Record<string, boolean>} selector → visible
  */
 export const resolveVisibility = (state = {}) => {
-  // Any of the containing sections being on is enough to keep tools
-  // visible -- this fork renders them under the category sections, so
-  // gating solely on 'tools-section' would hide every tool here.
-  const toolsOn = state['tools-section'] !== false
-    || state['ai-tools-section'] !== false
-    || state['personal-section'] !== false;
+  const sectionOn = (key) => state[key] !== false;
   const out = {};
   for (const [key, selector] of Object.entries(UI_VIS_MAP)) {
     let visible = key in state ? state[key] !== false : !UI_VIS_DEFAULT_OFF.has(key);
-    if (!toolsOn && key.startsWith('tool-')) visible = false;
+    if (key.startsWith('tool-')) {
+      // A tool needs the master Tools toggle and its own category section.
+      // Gating on the union of the sections instead (the previous approach
+      // here) meant switching one category off left that category's rail
+      // launchers visible, because the rail has no containers to inherit
+      // the hide from.
+      const parent = UI_VIS_TOOL_PARENT[key];
+      if (!sectionOn('tools-section')) visible = false;
+      else if (parent && !sectionOn(parent)) visible = false;
+    }
     out[selector] = visible;
   }
   return out;
