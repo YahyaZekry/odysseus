@@ -7,11 +7,7 @@
 //   - Other static assets (images/fonts/libs): cache-first with bg refresh.
 //   - API / non-GET: never cached.
 // Bump CACHE_NAME whenever the precache list or SW logic changes.
-<<<<<<< HEAD
-const CACHE_NAME = 'odysseus-v378-gotham-scene-2';
-=======
-const CACHE_NAME = 'odysseus-v380-shared-config-image-editor-lazy-katex-mermaid';
->>>>>>> upstream/dev
+const CACHE_NAME = 'odysseus-v381-shared-config-lazy-katex-mermaid-gotham-scene';
 
 // KaTeX resolves these from its own stylesheet, so caching the CSS without them
 // gives offline math fallback glyphs instead of proper typesetting.
