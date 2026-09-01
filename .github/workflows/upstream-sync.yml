@@ -11,11 +11,11 @@ name: upstream sync check
 # Re-runs always start the branch fresh from the current dev + a fresh
 # fetch of upstream, so the PR never goes stale while it sits unmerged.
 #
-# Workflow files are deliberately excluded from the sync branch: pushing a
-# change under .github/workflows/ requires a token with `workflow` scope, and
-# without it the push -- and therefore the entire sync -- fails. This fork
-# maintains its own copies of every workflow anyway, so upstream's versions
-# are restored to the fork's and listed on the PR instead.
+# Upstream's .github/workflows/ changes are pushed when the sync token has
+# `workflow` scope, and dropped only when it doesn't -- the push is attempted
+# for real and the fallback runs off the actual rejection, so the sync neither
+# dies on a missing scope nor silently withholds workflow files that upstream
+# tests depend on. Anything the fallback leaves behind is listed on the PR.
 #
 # PR creation via the default GITHUB_TOKEN is blocked by a GitHub-side
 # guardrail even with "Allow GitHub Actions to create and approve pull
@@ -93,31 +93,57 @@ jobs:
             git commit -m "Merge upstream/${UPSTREAM_BRANCH} (has conflicts, needs manual resolution)"
           fi
 
-          # Keep this fork's own workflow definitions. Pushing a branch that
-          # touches .github/workflows/ needs a token with `workflow` scope,
-          # and the whole sync fails at the push step without it -- which is
-          # exactly what happened daily from 2026-08-18 to 2026-08-23 over a
-          # single upstream edit to pr-description-check.yml. This fork
-          # already carries its own copy of every workflow file, so upstream's
-          # versions would be overridden on merge anyway. Drop them from the
-          # branch and report them on the PR instead of failing the sync.
-          skipped=$(git diff --name-only "$base" HEAD -- .github/workflows/)
-          if [ -n "$skipped" ]; then
-            rm -rf .github/workflows
-            git checkout "$base" -- .github/workflows
-            git add -A .github/workflows
-            git diff --cached --quiet || \
-              git commit -m "Keep this fork's .github/workflows (upstream changes skipped)"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      # Pushing a branch that touches .github/workflows/ needs a token with
+      # `workflow` scope. Without it the push is rejected and the whole sync
+      # dies at this step -- that took the sync down daily from 2026-08-18 to
+      # 2026-08-23 over one upstream edit to pr-description-check.yml.
+      #
+      # Dropping workflow files unconditionally (the previous approach) traded
+      # that outage for a quieter, worse failure: upstream tests that assert a
+      # workflow exists or has certain contents then fail on the sync PR, and
+      # a genuinely new file like deploy-pages.yml never arrives at all. On
+      # 2026-08-30 that silently withheld 11 of them.
+      #
+      # So try the real push first and only fall back when the token actually
+      # refuses. When the token has the scope this is a plain push; when it
+      # doesn't, the sync still lands everything outside .github/workflows/
+      # and the PR lists what it had to leave behind.
+      - name: Push sync branch
+        if: steps.diff.outputs.count != '0'
+        id: push
+        env:
+          BASE: ${{ steps.merge.outputs.base }}
+        run: |
+          if err=$(git push origin "$SYNC_BRANCH" --force 2>&1); then
+            echo "$err"
+            exit 0
           fi
+          echo "$err"
+
+          # Only the workflow-scope guardrail is recoverable here. Anything
+          # else (a protected branch, a network error, a revoked token) must
+          # still fail loudly rather than be papered over.
+          case "$err" in
+            *"without \`workflow\` scope"*) ;;
+            *) echo "::error::push failed for a reason other than workflow scope"; exit 1 ;;
+          esac
+
+          echo "::warning::Token lacks \`workflow\` scope; retrying without upstream's .github/workflows changes"
+          skipped=$(git diff --name-only "$BASE" HEAD -- .github/workflows/)
+          rm -rf .github/workflows
+          git checkout "$BASE" -- .github/workflows
+          git add -A .github/workflows
+          git diff --cached --quiet || \
+            git commit -m "Keep this fork's .github/workflows (upstream changes skipped)"
+          git push origin "$SYNC_BRANCH" --force
+
           {
             echo "skipped<<SKIPPED_EOF"
             echo "$skipped"
             echo "SKIPPED_EOF"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Push sync branch
-        if: steps.diff.outputs.count != '0'
-        run: git push origin "$SYNC_BRANCH" --force
 
       - name: Open or update PR
         if: steps.diff.outputs.count != '0'
@@ -125,7 +151,7 @@ jobs:
           GH_TOKEN: ${{ secrets.SYNC_PR_TOKEN || github.token }}
           CLEAN: ${{ steps.merge.outputs.clean }}
           COUNT: ${{ steps.diff.outputs.count }}
-          SKIPPED: ${{ steps.merge.outputs.skipped }}
+          SKIPPED: ${{ steps.push.outputs.skipped }}
         # Uses the REST API (gh api) rather than `gh pr create`/`gh pr edit`,
         # which go through GraphQL's createPullRequest mutation -- that
         # mutation rejects fine-grained PATs with "Resource not accessible"
