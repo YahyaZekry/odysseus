@@ -1,9 +1,13 @@
 # Roadmap
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-08-02
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-09-01
 > Forward-looking only. Check this before starting any task — know what's in flight.
 
 ## Current Goal
+
+2026-09-01: **the upstream sync is fixed for good, and the fork is level with upstream again** (`upstream ahead: 0`). Two rounds: PR #5 stopped the sync dying on the missing `workflow` token scope by dropping `.github/workflows/` from the branch, then PR #8 replaced that blanket skip with a real push attempt that falls back only on the actual rejection text, because the blanket version quietly broke upstream tests that assert on workflow files. Along the way PR #6 fixed a real sidebar bug (one category switched off left its icon-rail launchers visible) and three long-standing test failures, and syncs #4 (26 commits) and #7 (6 commits) landed. Upstream PR #6108 took a second review from `pewdiepie-archdaemon` and now holds a WCAG AA 4.5:1 contract for every derived foreground. Full detail in [[history]] and [[sessions]].
+
+2026-08-20: refreshed the PR #6108 screenshots (headless Chromium through Playwright, driven by a local injection proxy, because the Browser pane would not composite frames). `RaresKeY` then opened issue [#6125](https://github.com/odysseus-dev/odysseus/issues/6125) proposing a Radix-style semantic role layer, naming the per-consumer `--on-*` approach in #6108 as the alternative it rejects; commented with measured data rather than agreement alone.
 
 2026-08-16 (later): the 53-commit backlog was **cleared manually** and pushed (`d145e5af`) — local/origin/upstream now level, app verified booting. The workflow itself is **still broken** and will fail again on the next batch that touches `.github/workflows/**`; the PAT fix below is still open.
 
@@ -96,7 +100,7 @@ Sidebar categorization and the Email 3-pane redesign are committed and pushed (`
 
 ## Active TODOs
 
-- [ ] **Unblock `upstream-sync.yml`** (backlog cleared manually 2026-08-16, but the job still fails on any batch touching `.github/workflows/**`). Note option (b) below does **not** work: `workflows` is not a grantable `GITHUB_TOKEN` permission, so pushing with the default token is rejected the same way. Realistically (a) or (c). Pick one: **(a)** add workflow permission to the `SYNC_PR_TOKEN` fine-grained PAT ("Workflows: Read and write") — smallest change, keeps the current design; **(b)** split the credentials so the *push* uses the default `GITHUB_TOKEN` (which can write workflow files given `contents: write`) and only PR creation uses the PAT — the PAT was only ever needed for the PR step, per the 2026-08-05 finding; **(c)** exclude `.github/workflows/**` from the sync — not recommended, silently drops upstream CI changes. *(added: 2026-08-16)*
+- [x] ~~**Unblock `upstream-sync.yml`**~~ — **done 2026-08-23/09-01.** Option (a) was taken (workflow permission granted on `SYNC_PR_TOKEN`), and the workflow itself was hardened twice so it no longer depends on that permission staying granted. Option (c), which the note called the worst of the three, was briefly shipped as PR #5 and proved the point: it broke upstream tests that assert on workflow files. Superseded by PR #8. See [[history]]. *(closed: 2026-09-01)*
 - [ ] **Re-check the search provider registry + `/api/search/providers` after every upstream sync** — twice now an upstream merge has reverted local provider work (2026-06-25 registry, 2026-08-16 endpoint payload). Cheap guard: assert the endpoint returns `needs_key`/`key_setting` for a known key-requiring provider. *(added: 2026-08-16)*
 
 - [ ] Confirm `pip-audit`/Trivy findings aren't silently ignored — both are advisory-only in CI (see [[systems]] Security CI), so nothing blocks on them today. *(added 2026-07-19)*
@@ -106,6 +110,11 @@ Sidebar categorization and the Email 3-pane redesign are committed and pushed (`
 - [ ] **Decide whether the collapsed icon-rail deserves badges on other sections too** — email (`.rail-email-badge`) and notes (`.rail-notes-badge`) now both show unread/fired counts in the collapsed rail; the pattern is proven and cheap to replicate (see [[history]], 2026-08-02) if the same "collapsed view has less info than expanded" gap turns out to affect other sections. Not investigated elsewhere yet. *(added 2026-08-02)*
 
 ---
+
+- [ ] **Do not revoke the `workflow` permission on `SYNC_PR_TOKEN`.** It was granted 2026-08-23 and is now what keeps upstream's `.github/workflows/` changes flowing. Revoking it drops the sync onto its degraded path, where workflow files are skipped and upstream's workflow-asserting tests fail on the sync PR. *(added: 2026-09-01)*
+- [ ] **`codeql.yml` will conflict on every sync that touches it, and the answer is always to keep the deletion.** This repo runs CodeQL **default setup** (configured 2026-08-05, covering actions/javascript/python/swift/typescript), which is why `Analyze (swift)` runs despite there being no Swift here. GitHub does not allow default setup and an advanced-setup `codeql.yml` to coexist, so the file is deliberately absent. Upstream has no default setup and still ships the workflow, producing a modify/delete conflict with no markers. *(added: 2026-09-01)*
+- [ ] **`test_pr6020_browser_review_regressions.py::test_chat_runtime_stream_state_helpers_are_all_callable` fails on `dev`** and predates any local change (confirmed by stashing). Not investigated yet. *(found: 2026-09-01)*
+- [ ] Upstream issue [#6125](https://github.com/odysseus-dev/odysseus/issues/6125) — `RaresKeY` proposes a semantic role layer (`--surface-*` / `--on-*` pairs, solid `--text-*` roles, WCAG validation per built-in theme). Commented with the finding that the `cute` palette's own `--fg` on `--bg` is 3.26:1 before any muting, so a derive-from-palette role layer cannot fix it without a clamp on the input. Awaiting response on whether #6108 lands first or folds in. *(added: 2026-08-20)*
 
 ## Planned Features — retrieval & knowledge-workspace track
 

@@ -1,9 +1,9 @@
 # Odysseus — Knowledge Index
 
-> Last updated: 2026-08-19
+> Last updated: 2026-09-01
 > Status: Active
 > Stack: FastAPI (Python 3.11+) + SQLite/SQLAlchemy + Vanilla JS SPA + ChromaDB
-> Current goal: PR #6108 (contrast fix) has been through its first upstream review — changes requested, addressed in `00147e9` with per-surface foreground tokens plus a regression test; awaiting re-review and a maintainer approval click for the gated fork CI. Issue #6109 and the RSS follow-up on #5688 are open. A **retrieval track** is planned in [[roadmap]] (hybrid search + RRF first). `upstream-sync.yml` still needs its PAT fixed. Older goal context below.
+> Current goal: the fork is level with upstream again (`upstream ahead: 0`) and the nightly sync is fixed for good, after two rounds: PR #5 stopped it dying on a missing `workflow` token scope, then PR #8 replaced that blanket skip with a push-then-fallback because the skip quietly broke upstream tests that assert on workflow files. Upstream PR [#6108](https://github.com/odysseus-dev/odysseus/pull/6108) now holds a WCAG AA 4.5:1 contract for every derived foreground after a second review, and is awaiting a maintainer decision on the one visible consequence: the stock `#e06c75` accent flips its button text from white to near-black. Issue #6109, issue #6125 (semantic role layer) and the RSS follow-up on #5688 are open. A **retrieval track** is planned in [[roadmap]] (hybrid search + RRF first). Older goal context below.
 > Just completed a massive upstream sync — 1957 commits / 117 conflicted files merged from `upstream/dev` (commit `ca9fee69`), full test suite green (4796 passed). Not yet pushed. See [[history]] for the full breakdown of what was kept, what was taken from upstream, and why. Older goal context below.
 > Current goal: Sidebar restructuring and the Email 3-pane redesign are committed and pushed (`b205f82`, `236ef91`, `19aeec5`). Two follow-up polish rounds landed since: 2026-07-25 (icon-rail collapse, Theme layout overflow, new-mail pulse banner) and 2026-07-26 (folder-badge readability, modals now respect the Font setting, reader action row consolidated to 4 icon-only buttons with Reply/Reply All/Reply with AI folded into one dropdown). Agent mode can now actually run `sudo`: it prompts for the password in the UI and feeds it over stdin, uses the real `HOME`, and a missing `tool_progress` entry in the SSE relay whitelist (which also silently broke live tool output) is fixed — **confirmed working end-to-end 2026-07-27 with the user's real password**, not just a stub. `sudo` also now works when it's called *inside* a wrapper script rather than typed directly (`garuda-update`), via a real pty fallback, with ANSI escape codes stripped from pty output. 2026-07-28: `bash`/`python`/`manage_bg_jobs` moved into `ALWAYS_AVAILABLE` — the recurring "I don't have a shell tool" failures were keyword matching deciding *availability*, which can't work for context-dependent follow-ups like "cool check" (and ChromaDB, the semantic fallback, is still down). Verified live end-to-end. 2026-08-02: email notifications are real-time now — server-side SSE push (`src/email_notify.py`) replaces client polling gaps, unread counts are numbered badges everywhere (sidebar + collapsed icon-rail), plus a notification chime with a mute toggle. `upstream` remote fixed (was pointing at the maintainer's pre-rename GitHub username). See [[history]] and [[roadmap]] (ChromaDB still offline). See [[sessions]] for details.
 
@@ -44,3 +44,7 @@ A self-hosted AI workspace — an open-source alternative to ChatGPT/Claude that
 | Merging/syncing with upstream | `roadmap.md` + `sessions.md` |
 | General orientation (new session) | This file → then pick by task |
 | Full audit | All files |
+
+---
+
+*Maintained with [project-knowledge](https://github.com/YahyaZekry/project-knowledge-skill) · by [Yahya Zekry](https://github.com/YahyaZekry)*
