@@ -1,9 +1,13 @@
 # Roadmap
 
-> Part of odysseus/.project-knowledge/ | Last updated: 2026-09-01
+> Part of odysseus/.project-knowledge/ | Last updated: 2026-09-23
 > Forward-looking only. Check this before starting any task — know what's in flight.
 
 ## Current Goal
+
+2026-09-23: **sync PR #10 merged clean** (`ae1ee91e`, upstream's token-cache race fix #6280), workflow 12/12 nightly runs green, `codeql.yml` conflict-free for a second consecutive sync. Local/origin level. Upstream PR #6108 was nudged on 2026-09-13 with three named decision options (merge as is / keep white on stock accent / special-case `#e06c75`); no maintainer reply in 10 days, PR still OPEN and MERGEABLE with all checks passing. Do not re-nudge before early October.
+
+2026-09-13: **the sync pipeline is confirmed stable and PR #9 is merged** — third nightly cycle since the PR #8 fix, 12/12 workflow runs green, one open PR refreshed daily instead of piling up new ones. PR #9 (7 upstream commits) merged clean (`50a94ae5`) with `codeql.yml` untouched; its only red check was advisory CodeQL flagging 4 upstream-code false positives (see [[history]]). Local/origin level again. Upstream PR #6108 unchanged: mergeable, all checks pass, still awaiting the maintainer call on the `#e06c75` accent flip; issues #6109, #6125 and the RSS follow-up on #5688 remain open.
 
 2026-09-01: **the upstream sync is fixed for good, and the fork is level with upstream again** (`upstream ahead: 0`). Two rounds: PR #5 stopped the sync dying on the missing `workflow` token scope by dropping `.github/workflows/` from the branch, then PR #8 replaced that blanket skip with a real push attempt that falls back only on the actual rejection text, because the blanket version quietly broke upstream tests that assert on workflow files. Along the way PR #6 fixed a real sidebar bug (one category switched off left its icon-rail launchers visible) and three long-standing test failures, and syncs #4 (26 commits) and #7 (6 commits) landed. Upstream PR #6108 took a second review from `pewdiepie-archdaemon` and now holds a WCAG AA 4.5:1 contract for every derived foreground. Full detail in [[history]] and [[sessions]].
 
