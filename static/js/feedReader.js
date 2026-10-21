@@ -33,6 +33,15 @@ function _isYouTubeUrl(url) {
     || host === 'youtu.be' || host.endsWith('.youtu.be');
 }
 
+// Strip markup with the HTML parser instead of a tag regex: regex stripping
+// can leave fragments such as "<scr<script>ipt>" behind.
+function _plainTextFromHtml(html, limit) {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(String(html), 'text/html');
+  doc.body.querySelectorAll('script, style, noscript, template').forEach((el) => el.remove());
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+
 let _open = false;
 let _feeds = [];
 let _groups = [];
@@ -892,7 +901,7 @@ function _articleItemHtml(a) {
   const feedTitle = a.feed?.title || '';
   const feedIcon = a.feed?.icon || '';
   const time = a.published_at ? _formatTime(a.published_at) : '';
-  const rawSnippet = a.content ? a.content.replace(/<[^>]+>/g, '').trim().slice(0, 150) : '';
+  const rawSnippet = _plainTextFromHtml(a.content, 150);
   const isVideo = !!(_getYoutubeVideoId(a.url) || _getYoutubeVideoId(a.guid));
   // feedparser leaves content/summary empty for a lot of YouTube entries
   // (mostly Shorts) — an empty snippet div left a dead blank line in the
