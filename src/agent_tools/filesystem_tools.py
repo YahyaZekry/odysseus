@@ -358,7 +358,7 @@ def _write_new_file_without_overwrite(path: str, body: str) -> None:
     fd = os.open(
         temporary_path,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-        0o666,
+        0o644,
     )
 
     try:
