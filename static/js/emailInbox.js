@@ -5,11 +5,8 @@
 
 import spinnerModule from './spinner.js';
 import sessionModule from './sessions.js';
-<<<<<<< HEAD
-import { initEmailLibrary, openEmailLibrary, closeEmailLibrary, isOpen as isLibOpen, refreshLiveOnNewMail, prewarmEmailLibrary, prewarmUnreadEmails } from './emailLibrary.js?v=20260815approvalsave1';
-=======
 import { initEmailLibrary, openEmailLibrary, closeEmailLibrary, isOpen as isLibOpen, prewarmEmailLibrary, prewarmUnreadEmails } from './emailLibrary.js?v=20260915trashmove2';
->>>>>>> upstream/dev
+import { refreshLiveOnNewMail } from './emailLibrary/index.js';
 import * as Modals from './modalManager.js';
 import { applyEdgeDock } from './modalSnap.js';
 import { buildReplyAllCc, extractEmail } from './emailLibrary/replyRecipients.js';
@@ -1077,15 +1074,10 @@ async function _openEmail(em, itemEl, preloadedData = null, mode = 'reply', note
               uid: String(em.uid || ''),
               folder: folderAtStart,
               account_id: activeReplyAccount,
-<<<<<<< HEAD
+              // Fast/Full menu sends an explicit mode; the cached-draft
+              // shortcut (no mode) keeps the fork's size-based heuristic so
+              // small replies stay quick without degrading larger threads.
               fast: aiReplyMode ? aiReplyMode === 'fast' : _shouldUseFastAiReply(data),
-=======
-              // The regular AI Reply action should use the full reply path.
-              // Keep the explicit fast variant available for callers that
-              // still request it, but do not silently downgrade normal
-              // replies to the short-context generation budget.
-              fast: aiReplyMode === 'fast',
->>>>>>> upstream/dev
               user_hint: (noteHint || '').trim() || undefined,
             }),
           });

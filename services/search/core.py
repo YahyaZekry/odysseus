@@ -37,6 +37,7 @@ from .query import _cache_duration_for_query
 from .ranking import rank_search_results
 from .providers import (
     PROVIDER_FUNCTIONS,
+    searxng_search_api,
     _get_search_settings,
     _get_provider_key,
     _get_result_count,
@@ -103,26 +104,9 @@ def update_search_config(api_key: str = None, **kwargs):
 
 def _call_provider(provider_name: str, query: str, count: int, time_filter: str = None) -> List[dict]:
     """Call a search provider by name. Returns list of results or empty list."""
-<<<<<<< HEAD
     fn = PROVIDER_FUNCTIONS.get(provider_name)
     if fn:
         return fn(query, count, time_filter)
-=======
-    if provider_name == "searxng":
-        return searxng_search_api(query, count, time_filter=time_filter)
-    elif provider_name == "searxng_yep":
-        return searxng_search_api(query, count, time_filter=time_filter, engines="yep")
-    elif provider_name == "brave":
-        return brave_search(query, count, time_filter)
-    elif provider_name == "duckduckgo":
-        return duckduckgo_search(query, count, time_filter)
-    elif provider_name == "google_pse":
-        return google_pse_search(query, count, time_filter)
-    elif provider_name == "tavily":
-        return tavily_search(query, count, time_filter)
-    elif provider_name == "serper":
-        return serper_search(query, count, time_filter)
->>>>>>> upstream/dev
     return []
 
 

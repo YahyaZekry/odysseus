@@ -24,12 +24,6 @@ export const THEMES = {
                 advanced: { sendBtnBg: '#949494', sendBtnHover: '#7f7f7f',
                             userBubbleBg: '#2f2f2f', aiBubbleBg: '#171717',
                             inputBg: '#2f2f2f', brandColor: '#ffffff', brandMixTo: '#ffffff' } },
-<<<<<<< HEAD
-  claude:     { bg:'#262624', fg:'#f5f4f0', panel:'#30302e', border:'#4a4a47', red:'#c6613f' },
-  cute:       { bg:'#fff0f5', fg:'#d4608a', panel:'#fff8fa', border:'#f0c0d0', red:'#ff6b9d' },
-  navyseal:   { bg:'#0a1628', fg:'#b0cce8', panel:'#0e1e36', border:'#f0c800', red:'#00bcd4' },
-  gotham:     { bg:'#10131f', fg:'#d8dbee', panel:'#080a12', border:'#262c48', red:'#f2c14e' },
-=======
   claude:     { bg:'#1f1e1b', fg:'#f5f1e8', panel:'#2b2926', border:'#514b43', red:'#d97757' },
   cute:       { bg:'#fff4f7', fg:'#63394d', panel:'#fffafd', border:'#edc7d5', red:'#d65f88' },
   eclipse:    { bg:'#17191c', fg:'#e8e4dc', panel:'#0f1113', border:'#3c4248', red:'#46c2b3' },
@@ -38,7 +32,8 @@ export const THEMES = {
   blueprint:  { bg:'#10263b', fg:'#e8f1f5', panel:'#091a29', border:'#48758d', red:'#e6b84a' },
   monolith:   { bg:'#202020', fg:'#d8d8d2', panel:'#121212', border:'#50504b', red:'#b6e05c' },
   yoyo:       { bg:'#211f23', fg:'#dfdbd7', panel:'#141415', border:'#3e5146', red:'#e09d6c' },
->>>>>>> upstream/dev
+  navyseal:   { bg:'#0a1628', fg:'#b0cce8', panel:'#0e1e36', border:'#f0c800', red:'#00bcd4' },
+  gotham:     { bg:'#10131f', fg:'#d8dbee', panel:'#080a12', border:'#262c48', red:'#f2c14e' },
 };
 
 const DEFAULT_THEME = 'dark';
@@ -74,17 +69,14 @@ const THEME_DEFAULT_PATTERN = {
   organs:     'rain',
   ume:        'petals',
   cute:       'sparkles',
-<<<<<<< HEAD
-  navyseal:   'aurora',
-  gotham:     'bats',
-=======
   eclipse:    'starfield-depth',
   porcelain:  'dots',
   arcade:     'synapse',
   blueprint:  'dots',
   monolith:   'perlin-flow',
   yoyo:       'ascii-fireflies',
->>>>>>> upstream/dev
+  navyseal:   'aurora',
+  gotham:     'bats',
 };
 
 // Default effect colors for specific themes (overrides --fg)
@@ -94,15 +86,12 @@ const THEME_DEFAULT_EFFECT_COLOR = {
   organs:     '#451616',
   cute:       '#ff8cb8',
   ume:        '#f5a0c0',
-<<<<<<< HEAD
-  navyseal:   '#ffffff',
-=======
   eclipse:    '#46c2b3',
   arcade:     '#ff4f91',
   blueprint:  '#e6b84a',
   monolith:   '#b6e05c',
   yoyo:       '#b8e6c1',
->>>>>>> upstream/dev
+  navyseal:   '#ffffff',
 };
 
 // Default effect intensity (0..1) per theme. Any theme not listed defaults to 1.
@@ -110,13 +99,10 @@ const THEME_DEFAULT_INTENSITY = {
   midnight:   0.5,
   cyberpunk:  0.55,
   terminal:   0.8,
-<<<<<<< HEAD
-  organs:     0.65,
+  organs:     0.75,
+  yoyo:       0.8,
   navyseal:   0.5,
   gotham:     0.6,
-=======
-  yoyo:       0.8,
-  organs:     0.75,
 };
 
 const THEME_DEFAULT_SIZE = {
@@ -125,7 +111,6 @@ const THEME_DEFAULT_SIZE = {
 
 const THEME_DEFAULT_SPEED = {
   organs:     0.05,
->>>>>>> upstream/dev
 };
 
 // Default frosted-glass state per theme. Themes not listed default to false.
@@ -158,10 +143,7 @@ export function saveCustomTheme(name, colors, opts) {
     if (opts.bgEffectIntensity !== undefined) entry.bgEffectIntensity = opts.bgEffectIntensity;
     if (opts.bgEffectSize !== undefined) entry.bgEffectSize = opts.bgEffectSize;
     if (opts.bgEffectSpeed !== undefined) entry.bgEffectSpeed = opts.bgEffectSpeed;
-<<<<<<< HEAD
     if (opts.bgEffectCount !== undefined) entry.bgEffectCount = opts.bgEffectCount;
-=======
->>>>>>> upstream/dev
     if (opts.frosted !== undefined) entry.frosted = !!opts.frosted;
     if (opts.neonGlow !== undefined) entry.neonGlow = !!opts.neonGlow;
   }
@@ -468,21 +450,15 @@ const _BG_CLASSES = ['bg-pattern-dots',
   'bg-pattern-synapse', 'bg-pattern-rain', 'bg-pattern-constellations',
   'bg-pattern-perlin-flow',
   'bg-pattern-petals', 'bg-pattern-sparkles', 'bg-pattern-embers',
-<<<<<<< HEAD
   'bg-pattern-aurora', 'bg-pattern-matrix', 'bg-pattern-waves',
-  'bg-pattern-nebula', 'bg-pattern-ripples', 'bg-pattern-hexgrid', 'bg-pattern-bats'];
-const _CANVAS_PATTERNS = { synapse: _initSynapse, rain: _initRain, constellations: _initConstellations,
-  'perlin-flow': _initPerlinFlow,
-  petals: _initPetals, sparkles: _initSparkles, embers: _initEmbers,
-  aurora: _initAurora, matrix: _initMatrix, waves: _initWaves,
-  nebula: _initNebula, ripples: _initRipples, hexgrid: _initHexGrid, bats: _initBats };
-=======
+  'bg-pattern-nebula', 'bg-pattern-ripples', 'bg-pattern-hexgrid', 'bg-pattern-bats',
   'bg-pattern-starfield-depth', 'bg-pattern-ascii-fireflies'];
 const _CANVAS_PATTERNS = { synapse: _initSynapse, rain: _initRain, constellations: _initConstellations,
   'perlin-flow': _initPerlinFlow,
   petals: _initPetals, sparkles: _initSparkles, embers: _initEmbers,
+  aurora: _initAurora, matrix: _initMatrix, waves: _initWaves,
+  nebula: _initNebula, ripples: _initRipples, hexgrid: _initHexGrid, bats: _initBats,
   'starfield-depth': _initStarfieldDepth, 'ascii-fireflies': _initAsciiFireflies };
->>>>>>> upstream/dev
 
 export function applyBgEffectColor(color) {
   document.documentElement.style.setProperty('--bg-effect-color', color || '');
@@ -501,9 +477,8 @@ export function applyBgEffectSize(v) {
 }
 
 export function applyBgEffectSpeed(v) {
-<<<<<<< HEAD
-  // v is a multiplier 0.2..3. Default 1 when missing.
-  const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.2, Math.min(3, Number(v)));
+  // v is a multiplier 0.05..2.5. Canvas effects read this every frame.
+  const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.05, Math.min(2.5, Number(v)));
   document.documentElement.style.setProperty('--bg-effect-speed', String(n));
 }
 
@@ -512,14 +487,6 @@ export function applyBgEffectCount(v) {
   const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.2, Math.min(3, Number(v)));
   document.documentElement.style.setProperty('--bg-effect-count', String(n));
 }
-
-=======
-  // v is a multiplier 0.05..2.5. Canvas effects read this every frame.
-  const n = (v === undefined || v === null || isNaN(v)) ? 1 : Math.max(0.05, Math.min(2.5, Number(v)));
-  document.documentElement.style.setProperty('--bg-effect-speed', String(n));
-}
-
->>>>>>> upstream/dev
 /** Toggle the global "frosted glass" look — applies a translucent + blurred
  *  treatment to every panel, sidebar, modal, dropdown, and popover via CSS
  *  rules scoped to `body.theme-frosted`. */
@@ -539,16 +506,12 @@ function _getEffectSize() {
   return isNaN(v) ? 1 : v;
 }
 
-<<<<<<< HEAD
 // Read current speed multiplier for JS effects (canvas-based).
-=======
->>>>>>> upstream/dev
 function _getEffectSpeed() {
   const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-speed'));
   return isNaN(v) ? 1 : v;
 }
 
-<<<<<<< HEAD
 // Read current population multiplier for JS effects (canvas-based).
 function _getEffectCount() {
   const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-count'));
@@ -560,9 +523,6 @@ function _reconcileCount(arr, target, makeFn) {
   while (arr.length < target) arr.push(makeFn());
   if (arr.length > target) arr.length = target;
 }
-
-=======
->>>>>>> upstream/dev
 // Patterns where the intensity/size sliders have no visible effect.
 const _STATIC_PATTERNS = new Set(['none', 'dots']);
 
@@ -575,11 +535,7 @@ export function applyBgPattern(pattern) {
   const p = pattern || 'none';
   document.body.classList.remove(..._BG_CLASSES);
   // Clean up any canvas backgrounds
-<<<<<<< HEAD
-  document.querySelectorAll('#synapse-canvas, #rain-canvas, #constellations-canvas, #perlin-flow-canvas, #petals-canvas, #sparkles-canvas, #embers-canvas, #aurora-canvas, #matrix-canvas, #waves-canvas, #nebula-canvas, #ripples-canvas, #hexgrid-canvas, #bats-canvas').forEach(c => c.remove());
-=======
-  document.querySelectorAll('#synapse-canvas, #rain-canvas, #constellations-canvas, #perlin-flow-canvas, #petals-canvas, #sparkles-canvas, #embers-canvas, #starfield-depth-canvas, #ascii-fireflies-background').forEach(c => c.remove());
->>>>>>> upstream/dev
+  document.querySelectorAll('#synapse-canvas, #rain-canvas, #constellations-canvas, #perlin-flow-canvas, #petals-canvas, #sparkles-canvas, #embers-canvas, #aurora-canvas, #matrix-canvas, #waves-canvas, #nebula-canvas, #ripples-canvas, #hexgrid-canvas, #bats-canvas, #starfield-depth-canvas, #ascii-fireflies-background').forEach(c => c.remove());
   if (p !== 'none') document.body.classList.add('bg-pattern-' + p);
   if (_CANVAS_PATTERNS[p]) _CANVAS_PATTERNS[p]();
   // Hide sliders that do nothing on static patterns.
@@ -587,11 +543,7 @@ export function applyBgPattern(pattern) {
   const ig = document.getElementById('theme-bg-intensity-group');
   const sg = document.getElementById('theme-bg-size-group');
   const spg = document.getElementById('theme-bg-speed-group');
-<<<<<<< HEAD
   const cg = document.getElementById('theme-bg-count-group');
-  if (ig) ig.style.display = hide ? 'none' : '';
-  if (sg) sg.style.display = hide ? 'none' : '';
-  if (spg) spg.style.display = hide ? 'none' : '';
   if (cg) cg.style.display = _COUNT_CAPABLE_PATTERNS.has(p) ? '' : 'none';
 }
 
@@ -613,11 +565,6 @@ export function applyThemeDecor(name) {
     + '<div class="gotham-fx-cloud c1"></div><div class="gotham-fx-cloud c2"></div><div class="gotham-fx-cloud c3"></div>'
     + '<div class="gotham-fx-skyline"></div>';
   document.body.prepend(el);
-=======
-  if (ig) ig.style.display = hide ? 'none' : '';
-  if (sg) sg.style.display = hide ? 'none' : '';
-  if (spg) spg.style.display = hide ? 'none' : '';
->>>>>>> upstream/dev
 }
 
 // Memory's header toggle also controls the Synapse decoration. Pause its
@@ -656,10 +603,7 @@ export function save(name, colors, opts) {
     if (opts.bgEffectIntensity !== undefined && opts.bgEffectIntensity !== 1) obj.bgEffectIntensity = opts.bgEffectIntensity;
     if (opts.bgEffectSize !== undefined && opts.bgEffectSize !== 1) obj.bgEffectSize = opts.bgEffectSize;
     if (opts.bgEffectSpeed !== undefined && opts.bgEffectSpeed !== 1) obj.bgEffectSpeed = opts.bgEffectSpeed;
-<<<<<<< HEAD
     if (opts.bgEffectCount !== undefined && opts.bgEffectCount !== 1) obj.bgEffectCount = opts.bgEffectCount;
-=======
->>>>>>> upstream/dev
     if (opts.frosted) obj.frosted = true;
     if (opts.neonGlow) obj.neonGlow = true;
   }
@@ -870,24 +814,16 @@ export function initThemeUI() {
     const ec = document.getElementById('theme-bg-effect-color');
     const es = document.getElementById('theme-bg-intensity');
     const sz = document.getElementById('theme-bg-size');
-<<<<<<< HEAD
     const spEl = document.getElementById('theme-bg-speed');
     const cntEl = document.getElementById('theme-bg-count');
-=======
-    const sp = document.getElementById('theme-bg-speed');
->>>>>>> upstream/dev
     if (fs) opts.font = fs.value;
     if (ds) opts.density = ds.value;
     if (ps) opts.bgPattern = ps.value;
     if (ec) opts.bgEffectColor = ec.value;
     if (es) opts.bgEffectIntensity = parseFloat(es.value) / 100;
     if (sz) opts.bgEffectSize = parseFloat(sz.value) / 100;
-<<<<<<< HEAD
     if (spEl) opts.bgEffectSpeed = parseFloat(spEl.value) / 100;
     if (cntEl) opts.bgEffectCount = parseFloat(cntEl.value) / 100;
-=======
-    if (sp) opts.bgEffectSpeed = parseFloat(sp.value) / 100;
->>>>>>> upstream/dev
     const fr = document.getElementById('theme-frosted-toggle');
     if (fr) opts.frosted = !!fr.checked;
     const ng = document.getElementById('theme-neon-toggle');
@@ -916,14 +852,9 @@ export function initThemeUI() {
         const p = ct && ct.bgPattern ? ct.bgPattern : (THEME_DEFAULT_PATTERN[name] || 'none');
         const ec = ct && ct.bgEffectColor ? ct.bgEffectColor : (THEME_DEFAULT_EFFECT_COLOR[name] || '');
         const ei = (ct && ct.bgEffectIntensity !== undefined) ? ct.bgEffectIntensity : (THEME_DEFAULT_INTENSITY[name] !== undefined ? THEME_DEFAULT_INTENSITY[name] : 1);
-<<<<<<< HEAD
-        const sz = (ct && ct.bgEffectSize !== undefined) ? ct.bgEffectSize : 1;
-        const spd = (ct && ct.bgEffectSpeed !== undefined) ? ct.bgEffectSpeed : 1;
-        const cnt = (ct && ct.bgEffectCount !== undefined) ? ct.bgEffectCount : 1;
-=======
         const sz = (ct && ct.bgEffectSize !== undefined) ? ct.bgEffectSize : (THEME_DEFAULT_SIZE[name] !== undefined ? THEME_DEFAULT_SIZE[name] : 1);
         const sp = (ct && ct.bgEffectSpeed !== undefined) ? ct.bgEffectSpeed : (THEME_DEFAULT_SPEED[name] !== undefined ? THEME_DEFAULT_SPEED[name] : 1);
->>>>>>> upstream/dev
+        const cnt = (ct && ct.bgEffectCount !== undefined) ? ct.bgEffectCount : 1;
         const fr = (ct && ct.frosted !== undefined)
           ? !!ct.frosted
           : (THEME_DEFAULT_FROSTED[name] === true);
@@ -934,12 +865,8 @@ export function initThemeUI() {
         applyBgEffectColor(ec);
         applyBgEffectIntensity(ei);
         applyBgEffectSize(sz);
-<<<<<<< HEAD
-        applyBgEffectSpeed(spd);
-        applyBgEffectCount(cnt);
-=======
         applyBgEffectSpeed(sp);
->>>>>>> upstream/dev
+        applyBgEffectCount(cnt);
         applyFrostedGlass(fr);
         applyNeonGlow(ng);
         applyBgPattern(p);
@@ -951,10 +878,7 @@ export function initThemeUI() {
         const eis = document.getElementById('theme-bg-intensity');
         const szs = document.getElementById('theme-bg-size');
         const sps = document.getElementById('theme-bg-speed');
-<<<<<<< HEAD
         const cnts = document.getElementById('theme-bg-count');
-=======
->>>>>>> upstream/dev
         const frs = document.getElementById('theme-frosted-toggle');
         const ngs = document.getElementById('theme-neon-toggle');
         if (fs) fs.value = f;
@@ -963,17 +887,11 @@ export function initThemeUI() {
         if (ecs) ecs.value = ec || colors.fg || '#9cdef2';
         if (eis) eis.value = String(Math.round(ei * 100));
         if (szs) szs.value = String(Math.round(sz * 100));
-<<<<<<< HEAD
-        if (sps) sps.value = String(Math.round(spd * 100));
+        if (sps) sps.value = String(Math.round(sp * 100));
         if (cnts) cnts.value = String(Math.round(cnt * 100));
         if (frs) frs.checked = fr;
         if (ngs) ngs.checked = ng;
-        save(name, colors, { font: f, density: d, bgPattern: p, bgEffectColor: ec, bgEffectIntensity: ei, bgEffectSize: sz, bgEffectSpeed: spd, bgEffectCount: cnt, frosted: fr, neonGlow: ng });
-=======
-        if (sps) sps.value = String(Math.round(sp * 100));
-        if (frs) frs.checked = fr;
-        save(name, colors, { font: f, density: d, bgPattern: p, bgEffectColor: ec, bgEffectIntensity: ei, bgEffectSize: sz, bgEffectSpeed: sp, frosted: fr });
->>>>>>> upstream/dev
+        save(name, colors, { font: f, density: d, bgPattern: p, bgEffectColor: ec, bgEffectIntensity: ei, bgEffectSize: sz, bgEffectSpeed: sp, bgEffectCount: cnt, frosted: fr, neonGlow: ng });
       });
     });
     g.querySelectorAll('.theme-delete-btn').forEach(btn => {
@@ -1336,14 +1254,9 @@ export function initThemeUI() {
   const _initEffectIntensity = (saved && saved.bgEffectIntensity !== undefined)
     ? saved.bgEffectIntensity
     : (saved && THEME_DEFAULT_INTENSITY[saved.name] !== undefined ? THEME_DEFAULT_INTENSITY[saved.name] : 1);
-<<<<<<< HEAD
-  const _initEffectSize = (saved && saved.bgEffectSize !== undefined) ? saved.bgEffectSize : 1;
-  const _initEffectSpeed = (saved && saved.bgEffectSpeed !== undefined) ? saved.bgEffectSpeed : 1;
-  const _initEffectCount = (saved && saved.bgEffectCount !== undefined) ? saved.bgEffectCount : 1;
-=======
   const _initEffectSize = (saved && saved.bgEffectSize !== undefined) ? saved.bgEffectSize : (saved && THEME_DEFAULT_SIZE[saved.name] !== undefined ? THEME_DEFAULT_SIZE[saved.name] : 1);
   const _initEffectSpeed = (saved && saved.bgEffectSpeed !== undefined) ? saved.bgEffectSpeed : (saved && THEME_DEFAULT_SPEED[saved.name] !== undefined ? THEME_DEFAULT_SPEED[saved.name] : 1);
->>>>>>> upstream/dev
+  const _initEffectCount = (saved && saved.bgEffectCount !== undefined) ? saved.bgEffectCount : 1;
   const _initFrosted = (saved && saved.frosted !== undefined)
     ? !!saved.frosted
     : (saved && THEME_DEFAULT_FROSTED[saved.name] === true);
@@ -1355,10 +1268,7 @@ export function initThemeUI() {
   applyBgEffectIntensity(_initEffectIntensity);
   applyBgEffectSize(_initEffectSize);
   applyBgEffectSpeed(_initEffectSpeed);
-<<<<<<< HEAD
   applyBgEffectCount(_initEffectCount);
-=======
->>>>>>> upstream/dev
   applyFrostedGlass(_initFrosted);
   applyNeonGlow(_initNeonGlow);
   applyBgPattern(_initPattern);
@@ -1447,7 +1357,6 @@ export function initThemeUI() {
     });
   }
 
-<<<<<<< HEAD
   const countSlider = document.getElementById('theme-bg-count');
   if (countSlider) {
     countSlider.value = String(Math.round(_initEffectCount * 100));
@@ -1457,8 +1366,6 @@ export function initThemeUI() {
     });
   }
 
-=======
->>>>>>> upstream/dev
   const frostedToggle = document.getElementById('theme-frosted-toggle');
   if (frostedToggle) {
     frostedToggle.checked = _initFrosted;
@@ -1878,12 +1785,7 @@ function _initSynapse() {
     // Draw pulses as small bright dots with a short trail
     for (let i = pulses.length - 1; i >= 0; i--) {
       const p = pulses[i];
-<<<<<<< HEAD
       p.x += p.dx * speedMul; p.y += p.dy * speedMul;
-=======
-      const speedMult = _getEffectSpeed();
-      p.x += p.dx * speedMult; p.y += p.dy * speedMult;
->>>>>>> upstream/dev
 
       // Off screen — remove
       if (p.x > W + TRAIL_LEN || p.y > H + TRAIL_LEN) { pulses.splice(i, 1); continue; }
@@ -1961,14 +1863,11 @@ function _initRain() {
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
     const intenCss = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
-<<<<<<< HEAD
     const intensity = isNaN(intenCss) ? 1 : intenCss;
-    const speedMult = _getEffectSpeed();
+    // Intensity also controls rain speed (feels slower/lighter when dim);
+    // the count slider scales the population independently.
+    const speedMult = (0.35 + intensity * 0.65) * _getEffectSpeed();
     const countMul = _getEffectCount();
-=======
-    const inten = isNaN(intenCss) ? 1 : intenCss;
-    const speedMult = (0.35 + inten * 0.65) * _getEffectSpeed();
->>>>>>> upstream/dev
     const sizeMult = _getEffectSize();
 
     if (drops.length < MAX_DROPS * countMul && Math.random() < 0.6 * countMul) spawn();
@@ -2045,26 +1944,17 @@ function _initConstellations() {
       return;
     }
     requestAnimationFrame(draw);
-<<<<<<< HEAD
     const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
     const intensity = isNaN(inten) ? 1 : inten;
     const speedMul = _getEffectSpeed();
     _reconcileCount(stars, Math.round(STAR_COUNT * _getEffectCount()), makeStar);
     t += 0.01 * speedMul;
-=======
-    const speedMult = _getEffectSpeed();
-    t += 0.01 * speedMult;
->>>>>>> upstream/dev
     ctx.clearRect(0, 0, W, H);
     const c = getColor();
 
     // Move stars gently
     for (const s of stars) {
-<<<<<<< HEAD
       s.x += s.vx * speedMul; s.y += s.vy * speedMul;
-=======
-      s.x += s.vx * speedMult; s.y += s.vy * speedMult;
->>>>>>> upstream/dev
       if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
       if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
     }
@@ -2130,10 +2020,7 @@ function _initPerlinFlow() {
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-<<<<<<< HEAD
-=======
-    if (particles.length === 0) for (let i = 0; i < 350; i++) particles.push({ x: Math.random() * W, y: Math.random() * H, life: Math.random() });
->>>>>>> upstream/dev
+    if (particles.length === 0) for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(makeParticle());
   }
   resize();
   const _onResize = () => resize();
@@ -2146,37 +2033,23 @@ function _initPerlinFlow() {
   function draw(now = performance.now()) {
     if (!canvas.isConnected || !document.body.classList.contains('bg-pattern-perlin-flow')) { window.removeEventListener('resize', _onResize); canvas.remove(); return; }
     requestAnimationFrame(draw);
-<<<<<<< HEAD
-    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
-    const intensity = isNaN(inten) ? 1 : inten;
-    const speedMul = _getEffectSpeed();
-    _reconcileCount(particles, Math.round(PARTICLE_COUNT * _getEffectCount()), makeParticle);
-    ctx.fillStyle = getFade();
-    ctx.fillRect(0, 0, W, H);
-=======
     const step = Math.min(3, Math.max(0, now - previousTime) / (1000 / 60)) * _getEffectSpeed();
     previousTime = now;
+    const inten = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bg-effect-intensity'));
+    const intensity = isNaN(inten) ? 1 : inten;
+    _reconcileCount(particles, Math.round(PARTICLE_COUNT * _getEffectCount()), makeParticle);
     // Redraw only living marks: alpha blending old pixels leaves permanent
     // low-level residue on an 8-bit canvas, even after repeated fade passes.
     ctx.clearRect(0, 0, W, H);
     trails = trails.filter(mark => now - mark.time < trailLifetime);
->>>>>>> upstream/dev
     const c = getColor();
     particles.forEach(p => {
       const n = _bgSmoothNoise(p.x * 0.004 + t * 0.0008, p.y * 0.004 + 100);
       const angle = n * Math.PI * 6;
-<<<<<<< HEAD
-      const speed = (1 + _bgSmoothNoise(p.x * 0.003, p.y * 0.003 + 50) * 1.5) * speedMul;
-      p.x += Math.cos(angle) * speed; p.y += Math.sin(angle) * speed; p.life -= 0.001;
-      if (p.life <= 0 || p.x < 0 || p.x > W || p.y < 0 || p.y > H) { p.x = Math.random() * W; p.y = Math.random() * H; p.life = 1; }
-      ctx.beginPath(); ctx.arc(p.x, p.y, 1, 0, Math.PI * 2);
-      ctx.fillStyle = c; ctx.globalAlpha = p.life * 0.15 * intensity; ctx.fill();
-=======
       const speed = 1 + _bgSmoothNoise(p.x * 0.003, p.y * 0.003 + 50) * 1.5;
       p.x += Math.cos(angle) * speed * step; p.y += Math.sin(angle) * speed * step; p.life -= 0.001 * step;
       if (p.life <= 0 || p.x < 0 || p.x > W || p.y < 0 || p.y > H) { p.x = Math.random() * W; p.y = Math.random() * H; p.life = 1; }
-      trails.push({ x: p.x, y: p.y, alpha: p.life * 0.15 * Math.min(step, 1), time: now });
->>>>>>> upstream/dev
+      trails.push({ x: p.x, y: p.y, alpha: p.life * 0.15 * intensity * Math.min(step, 1), time: now });
     });
     ctx.fillStyle = c;
     for (const mark of trails) {
@@ -2355,14 +2228,9 @@ function _initPetals() {
     const speedMul = _getEffectSpeed();
     _reconcileCount(petals, Math.round(PETAL_COUNT * _getEffectCount()), () => { const p = makePetal(); p.y = Math.random() * H; return p; });
     petals.forEach(p => {
-<<<<<<< HEAD
-      p.y += p.vy * speedMul; p.rot += p.vr * speedMul; p.drift += p.driftSpeed * speedMul;
-      p.x += Math.sin(p.drift) * p.wobble;
-=======
       const speedMult = _getEffectSpeed();
       p.y += p.vy * speedMult; p.rot += p.vr * speedMult; p.drift += p.driftSpeed * speedMult;
       p.x += Math.sin(p.drift) * p.wobble * speedMult;
->>>>>>> upstream/dev
       if (p.y > H + 15) Object.assign(p, makePetal());
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
       ctx.globalAlpha = 0.2 * intensity;
@@ -2428,11 +2296,7 @@ function _initSparkles() {
     const speedMul = _getEffectSpeed();
     _reconcileCount(sparkles, Math.round(SPARK_COUNT * _getEffectCount()), makeSpark);
     sparkles.forEach(s => {
-<<<<<<< HEAD
       s.phase += s.speed * speedMul;
-=======
-      s.phase += s.speed * _getEffectSpeed();
->>>>>>> upstream/dev
       const twinkle = Math.sin(s.phase);
       const alpha = Math.max(0, twinkle) * 0.25 * s.life * intensity;
       const scale = 0.5 + Math.max(0, twinkle) * 0.5;
@@ -2512,18 +2376,10 @@ function _initEmbers() {
     const color = getColor();
     for (let i = embers.length - 1; i >= 0; i--) {
       const e = embers[i];
-<<<<<<< HEAD
       e.wobble += 0.03 * speedMul;
       e.x += (e.vx + Math.sin(e.wobble) * 0.5) * speedMul;
       e.y += e.vy * speedMul;
-      e.life++;
-=======
-      const speedMult = _getEffectSpeed();
-      e.wobble += 0.03 * speedMult;
-      e.x += (e.vx + Math.sin(e.wobble) * 0.5) * speedMult;
-      e.y += e.vy * speedMult;
-      e.life += speedMult;
->>>>>>> upstream/dev
+      e.life += speedMul;
       if (e.life > e.maxLife || e.y < -20) {
         embers.splice(i, 1);
         if (embers.length < target) embers.push(makeEmber());
@@ -3078,14 +2934,9 @@ function _initBats() {
 }
 const themeModule = { initThemeUI, togglePopup, closePopup, makeDraggable,
                        THEMES, applyColors, applyFontDensity, applyBgPattern,
-<<<<<<< HEAD
                        applyBgEffectColor, applyBgEffectIntensity, applyBgEffectSize,
                        applyBgEffectSpeed, applyBgEffectCount, applyThemeDecor,
                        applyFrostedGlass, applyNeonGlow,
-=======
-                       applyBgEffectColor, applyBgEffectIntensity, applyBgEffectSize, applyBgEffectSpeed,
-                       applyFrostedGlass,
->>>>>>> upstream/dev
                        save, getSaved, saveCustomTheme, deleteCustomTheme,
                        getCustomThemes };
 

@@ -3554,15 +3554,11 @@ export function addMessage(role, content, modelName, metadata) {
     } else if (metadata?.character_name && getShowPersonaName() && role !== 'user' && !isSlash && !isCompacted) {
       _roleText = metadata.character_name;
     }
-<<<<<<< HEAD
-    r.appendChild(document.createTextNode(_roleText));
-=======
     r.textContent = _roleText;
     if (role === 'user') {
       const pill = userModePill(metadata);
       if (pill) r.appendChild(pill);
     }
->>>>>>> upstream/dev
     if (role !== 'user') {
       const endpointChanged = Boolean(
         replyModels.requestedEndpointId

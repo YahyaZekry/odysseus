@@ -1427,16 +1427,11 @@ async def _call_mcp_tool(
     progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
     owner: Optional[str] = None,
 ) -> Dict:
-<<<<<<< HEAD
     """Route a legacy tool call through the MCP manager, with direct fallbacks.
 
     `owner` is forwarded to the direct fallbacks because bash needs it to scope
     the sudo-password prompt/cache to the right user.
     """
-    mcp = get_mcp_manager()
-    if not mcp:
-=======
-    """Route a legacy tool call through the MCP manager, with direct fallbacks."""
     bound = active_backend_operation()
     if bound is not None and isinstance(bound.resource, NativeBackendResource):
         return await _direct_fallback(tool, content, progress_cb=progress_cb, owner=owner) or {"error": f"Native tool '{tool}' unavailable", "exit_code": 1}
@@ -1444,7 +1439,6 @@ async def _call_mcp_tool(
     if not mcp:
         if bound is not None:
             raise ResourceIdentityError("Pinned MCP backend is unavailable")
->>>>>>> upstream/dev
         return await _direct_fallback(tool, content, progress_cb=progress_cb, owner=owner) or {"error": f"MCP manager not available for tool '{tool}'", "exit_code": 1}
 
     server_id, tool_name = _MCP_TOOL_MAP[tool]
@@ -1462,11 +1456,7 @@ async def _call_mcp_tool(
     result = _normalize_mcp_text_error(result)
 
     # If MCP server not connected, try direct fallback
-<<<<<<< HEAD
-    if isinstance(result, dict) and result.get("exit_code") == 1 and "not connected" in result.get("error", ""):
-=======
     if bound is None and isinstance(result, dict) and result.get("exit_code") == 1 and "not connected" in result.get("error", ""):
->>>>>>> upstream/dev
         fallback = await _direct_fallback(tool, content, progress_cb=progress_cb, owner=owner)
         if fallback:
             return fallback
@@ -1562,23 +1552,13 @@ async def _direct_fallback(
     disabled_tools: Optional[set] = None,
     tool_policy: Optional[ToolPolicy] = None,
 ) -> Optional[Dict]:
-<<<<<<< HEAD
-    # HOME is deliberately the real user's home, NOT the agent workdir.
-    # Overriding it bought no isolation (bash here is explicitly un-sandboxed
-    # and can read $HOME regardless) while silently breaking every
-    # config-driven tool: npm couldn't see ~/.npmrc and resolved its global
-    # prefix to /usr, which manufactured a bogus need for sudo; git, ssh and
-    # gh were likewise reading the wrong config.
-    _subproc_env = {
-        **os.environ,
-        "TERM": "xterm-256color",
-        "COLUMNS": "120",
-        "LINES": "40",
-        "HOME": os.path.expanduser("~"),
-    }
-=======
     _subproc_env = _agent_subprocess_env()
->>>>>>> upstream/dev
+    # HOME is deliberately the real user's home, NOT the agent workdir.
+    # Overriding it bought no isolation (bash can read $HOME regardless) while
+    # silently breaking every config-driven tool: npm couldn't see ~/.npmrc
+    # and resolved its global prefix to /usr, which manufactured a bogus need
+    # for sudo; git, ssh and gh were likewise reading the wrong config.
+    _subproc_env["HOME"] = os.path.expanduser("~")
 
     try:
         owned = active_owned_operation()
@@ -2226,10 +2206,6 @@ async def _execute_tool_block_impl(
         # owner/session context.
         first_line = content.split(chr(10))[0][:80]
         desc = f"{tool}: {first_line}"
-<<<<<<< HEAD
-        result = await _call_mcp_tool(tool, content, progress_cb=progress_cb, owner=owner)
-    elif tool in ("grep", "glob", "ls", "get_workspace"):
-=======
         result = await dispatched(_direct_fallback(tool, content, progress_cb=progress_cb,
             owner=owner, session_id=session_id, client_runtime_context=client_runtime_context)) \
             or {"error": f"{tool}: execution failed", "exit_code": 1}
@@ -2238,7 +2214,6 @@ async def _execute_tool_block_impl(
         desc = f"{tool}: {first_line}"
         result = await dispatched(_call_mcp_tool(tool, content, progress_cb=progress_cb, owner=owner))
     elif tool in ("grep", "glob", "ls", "get_workspace", "host_shell"):
->>>>>>> upstream/dev
         # Code-navigation tools — no MCP server; run the direct implementation.
         first_line = content.split(chr(10))[0][:80]
         desc = f"{tool}: {first_line}"

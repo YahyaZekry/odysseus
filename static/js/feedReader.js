@@ -1,7 +1,7 @@
-import uiModule from './ui.js';
+import uiModule from './ui.js?v=20260916largetoolscroll1';
 import * as Modals from './modalManager.js';
 import { makeWindowDraggable } from './windowDrag.js';
-import { snapModalToZone } from './tileManager.js';
+import { snapModalToZone } from './tileManager.js?v=20260910responsivebounds1';
 import { clearDockSide } from './modalSnap.js';
 import dragSortModule from './dragSort.js';
 

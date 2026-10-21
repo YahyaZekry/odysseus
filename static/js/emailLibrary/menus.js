@@ -16,7 +16,9 @@ import { topPortalZ } from '../toolWindowZOrder.js';
 import { showToast, styledConfirm } from '../ui.js?v=20260916largetoolscroll1';
 import { state } from './state.js';
 import {
+  _aiReplyIcon,
   _handleAiReplyButton,
+  _hasMultipleRecipients,
   _showEmailTranslateSubmenu,
   _showLibRemindSubmenu,
 } from './aiReply.js';
@@ -32,15 +34,82 @@ import {
   _fitEmailDropdown,
   _libCacheWriteBack,
   _loadEmailsFresh,
+  _loadReadingPane,
+  _setMobilePane,
   _renderGrid,
   _requireSuccessfulEmailMutation,
   _showEmailDeleteOverlay,
+  _snapEmailModalToLeftSidebar,
   _syncEmailReadState,
   _toggleCardPreview,
 } from './index.js';
 import { _openEmailAsTab } from './reader.js';
 
 const API_BASE = window.location.origin;
+
+export function _showReplyMenu(em, data, anchor) {
+  const existing = document.querySelector('.email-card-dropdown');
+  if (existing && existing._anchor === anchor) {
+    dismissOrRemove(existing);
+    return;
+  }
+  document.querySelectorAll('.email-card-dropdown').forEach(dismissOrRemove);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'email-card-dropdown';
+  dropdown._anchor = anchor;
+  const rect = anchor.getBoundingClientRect();
+  dropdown.style.cssText = `position:fixed;z-index:${topPortalZ()};min-width:170px;background:var(--panel,var(--bg));border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);padding:4px;font-size:12px;top:${rect.bottom + 4}px;right:${window.innerWidth - rect.right}px;`;
+
+  const _icon = (svg) => `<span class="dropdown-icon">${svg}</span>`;
+  const _replyIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>';
+  const _replyAllIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 17 2 12 7 7"/><polyline points="12 17 7 12 12 7"/><path d="M22 18v-2a4 4 0 0 0-4-4H7"/></svg>';
+
+  const actions = [
+    {
+      label: 'Reply',
+      icon: _replyIcon,
+      action: async () => {
+        _snapEmailModalToLeftSidebar(anchor.closest('.modal'));
+        if (state._onEmailClick) await state._onEmailClick({ email: em, emailData: data, mode: 'reply' });
+      },
+    },
+    ...(_hasMultipleRecipients(data) ? [{
+      label: 'Reply All',
+      icon: _replyAllIcon,
+      action: async () => {
+        _snapEmailModalToLeftSidebar(anchor.closest('.modal'));
+        if (state._onEmailClick) await state._onEmailClick({ email: em, emailData: data, mode: 'reply-all' });
+      },
+    }] : []),
+    {
+      label: 'Reply with AI',
+      icon: _aiReplyIcon(data),
+      // Reuses the exact standalone-button handler — same cached-draft
+      // shortcut and Fast/Full + context popover it always had, just
+      // anchored to the Reply button instead of its own icon.
+      action: () => _handleAiReplyButton({ stopPropagation: () => {}, currentTarget: anchor }, em, data),
+    },
+  ];
+
+  for (const a of actions) {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item-compact';
+    item.innerHTML = _icon(a.icon) + `<span>${a.label}</span>`;
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      a.action();
+    });
+    dropdown.appendChild(item);
+  }
+
+  document.body.appendChild(dropdown);
+  _fitEmailDropdown(dropdown, rect);
+  const close = bindMenuDismiss(dropdown, () => {
+    dropdown.remove();
+  }, (ev) => !dropdown.contains(ev.target) && ev.target !== anchor);
+}
 
 export function _showReaderMoreMenu(em, card, reader, anchor, data) {
   // Toggle: if a dropdown for THIS anchor is already open, close it.
@@ -73,22 +142,26 @@ export function _showReaderMoreMenu(em, card, reader, anchor, data) {
 
   const closeAndRemove = async () => {
     // Pick the next neighbour BEFORE we re-render so we know which email to
-    // jump to. Prefer the next card; fall back to the previous one if this
-    // was the last card.
-    const sibling = _findSiblingEmailCard(card, +1) || _findSiblingEmailCard(card, -1);
-    const nextUid = sibling ? sibling.dataset.uid : null;
+    // jump to. Prefer the next email in the list array; fall back to the
+    // previous one if this was the last. List-array-based (not DOM sibling
+    // lookup) so this works whether or not a `card` element was passed in —
+    // the 3-pane reading pane calls this with card=null.
+    const idx = state._libEmails.findIndex(e => String(e.uid) === String(em.uid));
+    const nextUid = idx === -1 ? null
+      : (state._libEmails[idx + 1]?.uid ?? state._libEmails[idx - 1]?.uid ?? null);
     await _animateEmailCardRemoval([em.uid]);
     state._libEmails = state._libEmails.filter(e => String(e.uid) !== String(em.uid));
     _renderGrid();
     _libCacheWriteBack();
     if (!nextUid) return;
-    // After _renderGrid, the card nodes are fresh — re-resolve and expand.
     const grid = document.getElementById('email-lib-grid');
-    const nextCard = grid?.querySelector(`.doclib-card[data-uid="${CSS.escape(String(nextUid))}"]`);
+    const nextRow = grid?.querySelector(`.email-row[data-uid="${CSS.escape(String(nextUid))}"]`);
     const nextEm = state._libEmails.find(e => String(e.uid) === String(nextUid));
-    if (nextCard && nextEm) {
-      _toggleCardPreview(nextCard, nextEm);
-      nextCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (nextRow && nextEm) {
+      grid.querySelectorAll('.email-row.active').forEach(r => r.classList.remove('active'));
+      nextRow.classList.add('active');
+      _loadReadingPane(nextEm);
+      nextRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   };
 
@@ -381,11 +454,15 @@ export function _showCardMenu(em, anchor) {
   const _newTabIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
   const actions = [
     { label: 'Open', icon: _replyIcon, action: async () => {
-      // Just expand inline (same as tapping the row).
-      const card = anchor.closest('.doclib-card');
-      if (card && !card.classList.contains('doclib-card-expanded')) {
-        await _toggleCardPreview(card, em);
+      // Same as clicking the row — load it into the persistent reading pane.
+      const grid = document.getElementById('email-lib-grid');
+      const row = grid?.querySelector(`.email-row[data-uid="${CSS.escape(String(em.uid))}"]`);
+      if (row) {
+        grid.querySelectorAll('.email-row.active').forEach(r => r.classList.remove('active'));
+        row.classList.add('active');
       }
+      _setMobilePane('reader');
+      await _loadReadingPane(em);
     }},
     { label: 'Open in new tab', icon: _newTabIcon, action: async () => {
       // Open this email as its own in-app modal that registers a dock

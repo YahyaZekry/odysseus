@@ -2835,6 +2835,9 @@ def setup_email_routes():
         _deferred = getattr(_start_poller, '_deferred', None)
         if _deferred:
             await _deferred()
+        fixture_result = _fixture_email_list(folder, limit, offset, filter, from_addr, owner)
+        if fixture_result is not None:
+            return fixture_result
         # SECURITY: include `owner` in the cache key so two users with
         # different account scopes don't share a cached list.
         ck = _list_cache_key(account_id, folder, filter, limit, offset, from_addr or "") + (int(bool(has_attachments)), date_from or "", date_to or "", owner)
@@ -2890,6 +2893,7 @@ def setup_email_routes():
         fixture_result = _fixture_email_list(folder, 1, 0, "unread", None, owner)
         if fixture_result is not None:
             return {
+                "latest": None,
                 "unread_count": int(fixture_result.get("total") or 0),
                 "max_uid": max([int(e.get("uid") or 0) for e in _fixture_email_rows(owner)] or [0]),
                 "folder": folder,
@@ -2914,14 +2918,28 @@ def setup_email_routes():
                     "SELECT COUNT(*), MAX(updated_at) FROM email_message_index WHERE owner=? AND account_key=? AND folder=?",
                     (owner or "", account_key, folder),
                 ).fetchone()
+                max_uid_val = int((row or [0, 0])[1] or 0)
+                latest = None
+                if max_uid_val:
+                    # Cheap: the local index already has subject/sender cached,
+                    # no extra IMAP round-trip needed — powers the "new mail"
+                    # pulse banner (static/js/emailInbox.js) with real content
+                    # instead of a generic "you have new mail" message.
+                    lrow = conn.execute(
+                        "SELECT subject, from_name, from_address FROM email_message_index WHERE owner=? AND account_key=? AND folder=? AND uid=?",
+                        (owner or "", account_key, folder, str(max_uid_val)),
+                    ).fetchone()
+                    if lrow:
+                        latest = {"subject": lrow[0] or "", "from_name": lrow[1] or "", "from_address": lrow[2] or ""}
             finally:
                 conn.close()
             indexed_total = int((total_row or [0])[0] or 0)
             if indexed_total:
                 return {
                     "unread_count": int((row or [0])[0] or 0),
-                    "max_uid": int((row or [0, 0])[1] or 0),
+                    "max_uid": max_uid_val,
                     "folder": folder,
+                    "latest": latest,
                     "sync": {
                         "source": "index",
                         "indexed": indexed_total,
@@ -2936,15 +2954,23 @@ def setup_email_routes():
         )
         emails = (result or {}).get("emails") or []
         max_uid = 0
+        latest = None
         if emails:
             try:
-                max_uid = max(int(e.get("uid") or 0) for e in emails)
+                latest_email = max(emails, key=lambda e: int(e.get("uid") or 0))
+                max_uid = int(latest_email.get("uid") or 0)
+                latest = {
+                    "subject": latest_email.get("subject") or "",
+                    "from_name": latest_email.get("from_name") or "",
+                    "from_address": latest_email.get("from_address") or "",
+                }
             except Exception:
                 max_uid = 0
         return {
             "unread_count": int((result or {}).get("total") or len(emails) or 0),
             "max_uid": max_uid,
             "folder": folder,
+            "latest": latest,
             "sync": {"source": "imap_fallback"},
         }
 
@@ -5394,15 +5420,61 @@ def setup_email_routes():
             logger.error(f"Failed to move email {uid} to {dest}: {e}")
             return {"success": False, "error": "Mail operation failed"}
 
+    def _list_folders_sync(account_id, owner):
+        """Sync IMAP work — call via asyncio.to_thread so the STATUS-per-folder
+        loop below (needed for unread counts) doesn't block the event loop.
+        """
+        with _imap(account_id, owner=owner) as conn:
+            status, folders = conn.list()
+            result = []
+            for f in folders or []:
+                decoded = f.decode() if isinstance(f, bytes) else f
+                match = re.search(r'"([^"]*)"$|(\S+)$', decoded)
+                if match:
+                    name = match.group(1) or match.group(2)
+                    result.append(name)
+            # Per-folder unread counts via STATUS (UNSEEN) — a distinct IMAP
+            # command from SELECT that returns the count directly without
+            # selecting the mailbox. SELECT/EXAMINE only mandate EXISTS, not
+            # an unread count (confirmed against imaplib + this file's own
+            # unread-state endpoint, which needs a separate SEARCH UNSEEN
+            # after SELECT when it wants a live count) — STATUS is the actual
+            # cheap primitive for this. \Noselect container folders (e.g.
+            # Gmail's "[Gmail]" itself) will fail STATUS; skip them silently,
+            # badge is just omitted for those.
+            unread_counts = {}
+            for name in result:
+                try:
+                    st, data = conn.status(_q(name), '(UNSEEN)')
+                    if st == "OK" and data and data[0]:
+                        m = re.search(rb'UNSEEN\s+(\d+)', data[0])
+                        if m:
+                            unread_counts[name] = int(m.group(1))
+                except Exception:
+                    pass
+            return {
+                "folders": result,
+                "unread_counts": unread_counts,
+                "sync": {
+                    "source": "imap",
+                    "updated_at": datetime.utcnow().isoformat() + "Z",
+                    "status": status.decode() if isinstance(status, bytes) else status,
+                },
+            }
+
     @router.get("/folders")
     async def list_folders(
         account_id: str | None = Query(None),
         cached_only: int = Query(0),
         owner: str = Depends(require_owner),
     ):
-        """List IMAP folders."""
+        """List IMAP folders, with a per-folder unread count."""
         if _fixture_email_enabled():
-            return {"folders": ["INBOX", "Archive", "Sent"], "sync": {"source": "local"}}
+            return {
+                "folders": ["INBOX", "Archive", "Sent"],
+                "unread_counts": {"INBOX": 0, "Archive": 0, "Sent": 0},
+                "sync": {"source": "fixture"},
+            }
         cached = _folder_cache_get(account_id, owner)
         if cached is not None:
             payload = dict(cached)
@@ -5422,28 +5494,8 @@ def setup_email_routes():
                 "folders": ["INBOX", "Sent", "Archive"],
                 "sync": {"source": "folder_cached_only_fallback"},
             }
-
-        def _list_folders_sync():
-            with _imap(account_id, owner=owner) as conn:
-                status, folders = conn.list()
-            result = []
-            for f in folders or []:
-                decoded = f.decode() if isinstance(f, bytes) else f
-                match = re.search(r'"([^"]*)"$|(\S+)$', decoded)
-                if match:
-                    name = match.group(1) or match.group(2)
-                    result.append(name)
-            return {
-                "folders": result,
-                "sync": {
-                    "source": "imap",
-                    "updated_at": datetime.utcnow().isoformat() + "Z",
-                    "status": status.decode() if isinstance(status, bytes) else status,
-                },
-            }
-
         try:
-            payload = await _asyncio.wait_for(_asyncio.to_thread(_list_folders_sync), timeout=8.0)
+            payload = await _asyncio.wait_for(_asyncio.to_thread(_list_folders_sync, account_id, owner), timeout=8.0)
             _folder_cache_put(account_id, owner, payload)
             return payload
         except _asyncio.TimeoutError:
@@ -5463,7 +5515,7 @@ def setup_email_routes():
             }
         except Exception as e:
             logger.error(f"list_folders failed: {e}")
-            return {"folders": [], "error": "Mail operation failed"}
+            return {"folders": [], "unread_counts": {}, "error": "Mail operation failed"}
 
     @router.post("/mark-answered/{uid}")
     async def mark_answered(uid: str, folder: str = Query("INBOX"), account_id: str | None = Query(None), owner: str = Depends(require_owner)):

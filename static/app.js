@@ -32,24 +32,15 @@ import { startBackgroundToolJobs } from './js/backgroundToolJobs.js';
 import memoryModule from './js/memory.js';
 import voiceRecorderModule from './js/voiceRecorder.js';
 import censorModule from './js/censor.js';
-<<<<<<< HEAD
-import galleryModule from './js/gallery.js';
-import { UI_VIS_DEFAULT_OFF, resolveVisibility } from './js/ui_visibility.js';
-import tasksModule from './js/tasks.js?v=20260723tasksbulkfeedback1';
-import calendarModule from './js/calendar.js';
-import notesModule from './js/notes.js';
-import feedReaderModule from './js/feedReader.js';
-import adminModule from './js/admin.js?v=20260716openrouter3';
-import settingsModule from './js/settings.js?v=20260815approvalsave1';
-=======
 import galleryModule from './js/gallery.js?v=20260910promptcopy1';
 import { UI_VIS_DEFAULT_OFF, resolveVisibility } from './js/ui_visibility.js?v=20260829chatstyle12';
 import tasksModule from './js/tasks.js?v=20260914taskmodel1';
 import calendarModule from './js/calendar.js?v=20260914emailsource11';
 import notesModule from './js/notes.js?v=20260911notesselectioncancel1';
+// Fork-local RSS reader (not in upstream yet).
+import feedReaderModule from './js/feedReader.js';
 import adminModule from './js/admin.js?v=20260929csssplit';
 import settingsModule from './js/settings.js?v=20260912writingstyle3';
->>>>>>> upstream/dev
 // Eagerly bind unified minimize/restore behavior across all tool modals.
 import './js/modalManager.js';
 import './js/chipScroll.js?v=20260903calendarchips1';
@@ -1184,7 +1175,6 @@ function initializeEventListeners() {
       }
     });
   }
-<<<<<<< HEAD
 
   // Close RSS when opening other sidebar tools
   document.addEventListener('click', (e) => {
@@ -1198,7 +1188,6 @@ function initializeEventListeners() {
       setTimeout(() => feedReaderModule.closePanel(), 0);
     }
   }, true);
-=======
   const notesNewNoteBtn = el('notes-new-note-btn');
   if (notesNewNoteBtn) {
     notesNewNoteBtn.addEventListener('click', (event) => {
@@ -1207,7 +1196,6 @@ function initializeEventListeners() {
       notesModule?.newNote?.();
     });
   }
->>>>>>> upstream/dev
   // Refresh notes due-reminder badge on load and every 5 minutes
   if (notesModule && notesModule.refreshDueBadge) {
     notesModule.refreshDueBadge();
@@ -3932,16 +3920,12 @@ function startOdysseusApp() {
   // Rail tool buttons — delegate to sidebar tool buttons
   const _railToolMap = {
     'rail-calendar':  'tool-calendar-btn',
-<<<<<<< HEAD
     'rail-rss':       'tool-rss-btn',
-    'rail-notes':     'tool-notes-btn',
-=======
     'rail-compare':   'tool-compare-btn',
     'rail-cookbook':   'tool-cookbook-btn',
     'rail-research':  'tool-research-btn',
     'rail-gallery':   'tool-gallery-btn',
     'rail-archive':   'tool-library-btn',
->>>>>>> upstream/dev
     'rail-memory':    'tool-memory-btn',
     'rail-notes':     'tool-notes-btn',
     'rail-skills':    'tool-skills-btn',

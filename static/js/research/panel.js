@@ -10,10 +10,27 @@ import { searchProviderLogo } from '../searchProviderIcons.js';
 import { orderActionMenuItems, actionMenuRank, SELECT_MENU_ICON } from '../actionMenuOrder.js';
 import { bindMenuDismiss } from '../escMenuStack.js';
 
+const _RESEARCH_HINTS = [
+  "e.g. Trace Odysseus's ten-year journey home from Troy — every island, monster, and detour, and why each one cost him",
+  "e.g. Compare Rust and Go for building a high-throughput web API in 2026",
+  "e.g. Fact-check whether honey actually never spoils",
+  "e.g. How to roast a duck so the skin stays crispy",
+  "e.g. The collapse of Bronze Age civilizations — leading theories and the evidence behind each",
+  "e.g. Best M.2 NVMe SSDs under $200 for a home AI workstation",
+  "e.g. Why do cats knead with their paws? Cover the leading behavioural explanations",
+  "e.g. Side effects and benefits of long-term creatine supplementation",
+  "e.g. How does end-to-end encryption work in Signal, step by step",
+  "e.g. The history of the printing press in East Asia, 700 CE → 1600 CE",
+];
+function _pickResearchHint() {
+  const i = Math.floor(Math.random() * _RESEARCH_HINTS.length);
+  // Escape double-quotes so we can safely splice into a placeholder="…" attribute.
+  return _RESEARCH_HINTS[i].replace(/"/g, '&quot;');
+}
+
 // jobId -> { synapse, status } — survives across _renderJobs() rebuilds so
 // the SVG keeps its accumulated nodes/edges between progress events.
 const _jobSynapses = new Map();
-<<<<<<< HEAD
 // Which foldable job sections ('active' / 'past') the user has collapsed — kept
 // across re-renders so the panel doesn't re-expand on every job-state change.
 const _collapsedSections = new Set();
@@ -33,12 +50,11 @@ async function _fetchProviders() {
     _cachedProviders = [{id:'',label:'Default'}].concat(list);
   } catch (e) { /* keep empty */ }
 }
-=======
+
 // Running cards rebuild whenever research progress changes. Keep a per-job
 // collapse choice outside the DOM so a user can inspect another job without
 // the next progress event reopening it.
 const _collapsedActiveJobIds = new Set();
->>>>>>> upstream/dev
 const _vizCollapseIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
 const _vizExpandIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 
@@ -231,10 +247,6 @@ export function init(apiBase, markdownMod, sessionMod) {
   _sessionModule = sessionMod;
   jobs.init(apiBase);
   jobs.setRenderCallback(_renderJobs);
-<<<<<<< HEAD
-  jobs.onComplete(() => { if (!_open) _showBadge(); });
-  _fetchProviders();
-=======
   jobs.onComplete(() => {
     if (!_open) {
       _researchRailUnread = true;
@@ -242,7 +254,7 @@ export function init(apiBase, markdownMod, sessionMod) {
       _syncResearchRail();
     }
   });
->>>>>>> upstream/dev
+  _fetchProviders();
 }
 
 export function isOpen() { return _open; }
@@ -425,7 +437,6 @@ function _buildPanelHTML() {
         <p class="memory-desc doclib-desc research-new-job-desc">
           <span>Multi-step web research with an LLM-in-the-loop agent</span>
         </p>
-<<<<<<< HEAD
         <textarea id="research-query" class="research-query" placeholder="${_pickResearchHint()}" rows="4"></textarea>
         <div class="research-category-row" id="research-category-row">
           <button class="research-cat active" data-cat="" title="LLM auto-detects the best format">Auto</button>
@@ -435,9 +446,6 @@ function _buildPanelHTML() {
           <button class="research-cat" data-cat="howto">How-to</button>
           <button class="research-cat" data-cat="factcheck">Fact-check</button>
         </div>
-=======
-        <textarea id="research-query" class="research-query" placeholder="Set sail on a question — Odysseus will chart the course." rows="4"></textarea>
->>>>>>> upstream/dev
         <button id="research-settings-toggle" class="research-settings-toggle${chevronCls}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;opacity:0.85;flex-shrink:0;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings<span class="research-settings-chevron">${_chevronIcon}</span>
         </button>

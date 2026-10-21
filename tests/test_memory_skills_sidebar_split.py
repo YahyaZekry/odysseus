@@ -9,32 +9,38 @@ MEMORY_JS = (ROOT / "static" / "js" / "memory.js").read_text(encoding="utf-8")
 CHAT_STREAM_JS = (ROOT / "static" / "js" / "chatStream.js").read_text(encoding="utf-8")
 INIT_JS = (ROOT / "static" / "js" / "init.js").read_text(encoding="utf-8")
 
+# This fork groups launchers into three sidebar sections (AI & Knowledge,
+# Personal, Appearance) instead of upstream's single flat list. The tool order
+# below is the fork's curated DOM order, so the invariant is that the markup
+# order matches it (rather than globally alphabetical, which the section
+# grouping makes impossible).
 TOOL_ORDER = [
-    "tool-calendar-btn",
-    "tool-compare-btn",
-    "tool-cookbook-btn",
     "tool-research-btn",
-    "tool-gallery-btn",
-    "tool-library-btn",
+    "tool-compare-btn",
     "tool-memory-btn",
-    "tool-notes-btn",
+    "tool-library-btn",
+    "tool-gallery-btn",
+    "tool-cookbook-btn",
     "tool-skills-btn",
+    "tool-calendar-btn",
+    "tool-notes-btn",
     "tool-tasks-btn",
     "tool-theme-btn",
 ]
 
 RAIL_ORDER = [
-    "rail-calendar",
-    "rail-compare",
-    "rail-cookbook",
     "rail-research",
-    "rail-email",
-    "rail-gallery",
-    "rail-archive",
+    "rail-compare",
     "rail-memory",
+    "rail-archive",
+    "rail-gallery",
+    "rail-cookbook",
+    "rail-email",
+    "rail-calendar",
     "rail-notes",
     "rail-skills",
     "rail-tasks",
+    "rail-rss",
     "rail-theme",
 ]
 
@@ -93,7 +99,7 @@ def test_memory_and_skills_modal_sections_are_scoped_by_launcher():
     assert '<div class="admin-card" data-memory-scope="skills">' in INDEX
 
 
-def test_sidebar_tools_and_icon_rail_are_alphabetically_ordered():
+def test_sidebar_tools_and_icon_rail_follow_fork_order():
     tool_positions = [INDEX.index(f'id="{tool_id}"') for tool_id in TOOL_ORDER]
     assert tool_positions == sorted(tool_positions)
 

@@ -159,11 +159,10 @@ You are updating an evolving research report.
 **New findings from this round:**
 {new_findings}
 
-<<<<<<< HEAD
 If the original question specifies a custom output structure (numbered framework
 entries, per-entry section templates, discrete entries rather than flowing prose),
 maintain that structure in the updated report — do not collapse it into essay format.
-=======
+
 **Evidence/source state:**
 {source_state}
 
@@ -172,7 +171,6 @@ maintain that structure in the updated report — do not collapse it into essay 
 
 **Recent navigation observations:**
 {navigation_trace}
->>>>>>> upstream/dev
 
 Integrate the new findings into the existing report. Produce an updated, well-organized \
 report that answers the original question as completely as possible given all evidence so far. \
@@ -227,16 +225,13 @@ STRUCTURE CHECK — READ THIS FIRST:
 
 ---
 
-Research question:
+Write a **long, detailed, comprehensive** research report answering this question:
 
 **Question:** {question}
 
 **All collected evidence and analysis:**
 {report}
 
-<<<<<<< HEAD
-Default requirements (apply ONLY if the STRUCTURE CHECK above says "(No custom template"):
-=======
 **Evidence/source state:**
 {source_state}
 
@@ -246,8 +241,7 @@ Default requirements (apply ONLY if the STRUCTURE CHECK above says "(No custom t
 **Recent navigation observations:**
 {navigation_trace}
 
-Requirements:
->>>>>>> upstream/dev
+Default requirements (apply ONLY if the STRUCTURE CHECK above says "(No custom template"):
 - Write at MINIMUM 1500 words — this should be a thorough, magazine-quality article
 - Use clear ## headings and ### subheadings to organize into logical sections
 - Each section should have multiple detailed paragraphs, not just bullet points
@@ -431,9 +425,7 @@ class DeepResearcher:
         self.findings: List[Dict] = []
         self.evolving_report: str = ""
         self.research_plan: str = ""
-<<<<<<< HEAD
         self.user_template: str = ""
-=======
         self.action_trace: List[Dict[str, object]] = []
         self.navigation_trace: List[Dict[str, object]] = []
         self.navigator = ResearchNavigator(
@@ -441,7 +433,6 @@ class DeepResearcher:
             search_provider=search_provider,
             session_id=session_id,
         )
->>>>>>> upstream/dev
 
     def cancel(self):
         """Request cooperative cancellation of the research loop."""
@@ -715,7 +706,6 @@ class DeepResearcher:
             self._emit(phase="warning", message="Planning step failed, proceeding with direct search")
             return ""
 
-<<<<<<< HEAD
     # ------------------------------------------------------------------
     # EXTRACT USER TEMPLATE
     # ------------------------------------------------------------------
@@ -788,28 +778,6 @@ class DeepResearcher:
 
         return ""
 
-    async def _classify_category(self, question: str) -> Optional[str]:
-        """Fast LLM call to classify the research question into a category."""
-        valid = ", ".join(CATEGORY_PROMPTS.keys())
-        prompt = (
-            f"Classify this research question into exactly ONE category.\n\n"
-            f"Categories:\n"
-            f"  product       - Researching actual commercial products, software, services, or tools to decide what to buy or use.\n"
-            f"  comparison    - Side-by-side comparison of specific named options or alternatives.\n"
-            f"  howto         - Step-by-step instructions to accomplish a specific task.\n"
-            f"  factcheck     - Verifying the truth of a specific claim or statement.\n"
-            f"  general       - Everything else: analysis, explanation, psychology, biography, history, concepts, theory, creative writing, narrative, academic research, or any topic that is NOT about buying commercial products or following a how-to guide.\n\n"
-            f"Examples:\n"
-            f"  'Compare React vs Vue for web dev' -> comparison\n"
-            f"  'Best budget laptops under $500' -> product\n"
-            f"  'How to deploy a Django app on AWS' -> howto\n"
-            f"  'Is the earth flat?' -> factcheck\n"
-            f"  'Analyze the psychology of Batman' -> general\n"
-            f"  'History of the Roman Empire' -> general\n"
-            f"  'Explain quantum computing' -> general\n\n"
-            f"Question: {question}\n\n"
-            f"Respond with ONLY the category name. If uncertain, answer: general"
-=======
     async def _classify_category(self, question: str, research_plan: str = "") -> Optional[str]:
         """Choose the report structure from explicit intent and planning context."""
         inferred = _infer_research_category(question)
@@ -817,6 +785,7 @@ class DeepResearcher:
             return inferred
         plan_context = str(research_plan or "").strip()[:1600]
         prompt = (
+            "Classify this research question into exactly ONE category.\n"
             "Choose the report STRUCTURE that best answers this research request.\n"
             "Return exactly one label: product, comparison, howto, factcheck, or general.\n\n"
             "product: the reader is choosing what or where to purchase; prices, ranked picks, "
@@ -833,7 +802,6 @@ class DeepResearcher:
             f"Question: {question}\n"
             f"Research plan: {plan_context or '(not available)'}\n\n"
             "Label:"
->>>>>>> upstream/dev
         )
         try:
             result = await self._llm(
@@ -1416,46 +1384,12 @@ class DeepResearcher:
         display = title or url
         self._emit(phase="reading", url=url, title=display,
                    total_sources=len(self.urls_fetched))
-<<<<<<< HEAD
-        try:
-            from src.search import fetch_webpage_content
-            page = await asyncio.to_thread(fetch_webpage_content, url, 10)
-        except Exception as e:
-            logger.warning(f"Failed to fetch {url}: {e}")
-            return None
-
-        if not page.get("success") or not page.get("content"):
-            return None
-
-        content = page["content"]
-        # Truncate to avoid blowing up context, preferring paragraph boundary
-        if len(content) > self.max_content_chars:
-            truncated = content[:self.max_content_chars]
-            last_para = truncated.rfind('\n\n')
-            if last_para > self.max_content_chars * 0.8:
-                content = truncated[:last_para]
-            else:
-                content = truncated
-
-        try:
-            response = await self._llm(
-                [
-                    {"role": "user", "content": EXTRACTOR_SYSTEM.format(
-                        goal=self.research_plan or question[:200]
-                    )},
-                    untrusted_context_message("webpage", content),
-                ],
-                temperature=0.2,
-                max_tokens=2048,
-                timeout=self.extraction_timeout,
-=======
         navigator = getattr(self, "navigator", None)
         if navigator is None:
             navigator = ResearchNavigator(
                 progress_callback=self._progress,
                 search_provider=self.search_provider_override,
                 session_id=getattr(self, "session_id", ""),
->>>>>>> upstream/dev
             )
             self.navigator = navigator
 
@@ -1950,25 +1884,19 @@ class DeepResearcher:
     # ------------------------------------------------------------------
     async def _final_report(self, question: str, report: str) -> str:
         """LLM writes a polished final report, retrying if too short."""
-<<<<<<< HEAD
         # Use condensed research plan as {question} instead of the full prompt
         # to keep context manageable. The user's structural template is injected
         # separately via {template} so the STRUCTURE CHECK still works.
-        template_block = self.user_template or "(No custom template — use the default format below.)"
+        template_block = getattr(self, "user_template", "") or "(No custom template — use the default format below.)"
         condensed_question = self.research_plan or question[:300]
-=======
         cat_extra = CATEGORY_PROMPTS.get(self.category or "", "")
->>>>>>> upstream/dev
         prompt = FINAL_REPORT_PROMPT.format(
             question=condensed_question,
             report=report,
-<<<<<<< HEAD
             template=template_block,
-=======
             source_state=self._source_state_summary(),
             source_coverage_json=self._source_coverage_json(),
             navigation_trace=self._navigation_trace_summary(limit=12),
->>>>>>> upstream/dev
         )
         if cat_extra:
             prompt += "\n\n" + cat_extra

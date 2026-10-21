@@ -22,13 +22,8 @@ def _extract_between(source: str, signature: str, next_marker: str) -> str:
 
 
 def test_library_unread_preview_has_one_authoritative_request_and_rollback():
-<<<<<<< HEAD
-    source = _LIBRARY_JS.read_text(encoding="utf-8")
-    function = _extract_between(source, "async function _toggleCardPreview", "\n// Shared reader-header markup")
-=======
     source = email_library_source()
     function = js_function_source("_toggleCardPreview", source)
->>>>>>> upstream/dev
 
     assert function.count("/api/email/read/") == 1
     assert "/api/email/mark-read/" not in function
@@ -44,13 +39,8 @@ def test_library_unread_preview_has_one_authoritative_request_and_rollback():
 
 @pytest.mark.skipif(not _HAS_NODE, reason="node binary not on PATH")
 def test_library_authoritative_success_defeats_newer_rollback_in_either_order():
-<<<<<<< HEAD
-    source = _LIBRARY_JS.read_text(encoding="utf-8")
-    function = _extract_between(source, "async function _toggleCardPreview", "\n// Shared reader-header markup")
-=======
     source = email_library_source()
     function = js_function_source("_toggleCardPreview", source)
->>>>>>> upstream/dev
     settlements = _extract_between(
         function,
         "  const restoreUnreadState = () => {",

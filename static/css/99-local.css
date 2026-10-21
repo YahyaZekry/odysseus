@@ -1,0 +1,2801 @@
+/* Local fork overrides — layered after the upstream split stylesheets. */
+
+:root {
+  /* Core palette */
+  --bg: #282c34;
+  --fg: #9cdef2;
+  --panel: #111;
+  --border: #355a66;
+  --red: #e06c75;
+  /* Were `var(--green)` / `var(--warn)` — self-referential, so they
+     resolved to invalid and every site fell back to its own literal
+     (or, for sites with no fallback, painted as transparent/inherit).
+     Anchor them to real hex so the token layer actually works. */
+  --green: #50fa7b;
+  --warn: #f0ad4e;
+  /* Syntax highlighting */
+  --hl-bg: #1e2228;
+  --hl-fg: #9cdef2;
+  --hl-keyword: #c678dd;
+  --hl-string: #e5c07b;
+  --hl-comment: #828997;
+  --hl-function: #61afef;
+  --hl-number: #d19a66;
+  --hl-builtin: #56b6c2;
+  --hl-variable: #abb2bf;
+  --hl-params: #a8c0d4;
+  /* Semantic colors */
+  --color-error: #ff4444;
+  --color-error-light: #ff6666;
+  --color-success: #4caf50;
+  --color-warning: #f0ad4e;
+  --color-danger: #c0392b;
+  --color-recording: #ff3b30;
+  --color-recording-hover: #d63031;
+  --color-muted: #888;
+  --color-muted-alt: #6b7280;
+  --color-accent: #00aaff;
+  --color-agent-active: #00ff00;
+  --color-brand-blue: #3b82f6;
+  --color-blind-orange: #ff9800;
+  --color-save-green: var(--color-success);
+  --color-link-hover: #66c7ff;
+  --color-subheader: #6b8a94;
+  --select-bg: var(--bg);
+  --select-fg: var(--fg);
+  --select-option-bg: color-mix(in srgb, var(--panel) 74%, var(--bg));
+  --select-option-fg: var(--fg);
+  --select-option-active-bg: color-mix(in srgb, var(--accent, var(--red)) 24%, var(--panel));
+  /* Warm accent — used by the Goals/Today UI in Notes. Lives as a token so
+     themes can override without touching the goal CSS. */
+  --accent-warm: #d19a66;
+  /* Device safe areas (notch, Dynamic Island, home indicator) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  /* Full-height sheets start clear of the status-bar blur; flush when there is no inset */
+  --sheet-top: calc(var(--safe-top) + min(var(--safe-top), 24px));
+  --app-height: 100dvh;
+  /* Text color for content sitting directly on a --red-colored background
+     (buttons, pills, badges). Computed per-theme in theme.js from --red's
+     actual WCAG luminance -- a light accent (e.g. gotham's bat-signal
+     amber) needs dark text, not the white that works for every darker
+     accent. This default covers first paint before JS runs. */
+  --on-accent: #fff
+}
+
+.user-bar-avatar {
+  width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--fg) 12%, transparent);
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--fg);
+      opacity: 0.7;
+      flex-shrink: 0;
+      text-transform: uppercase;
+}
+
+#ai-tools-section, #personal-section, #appearance-section {
+  margin-top: 1px;
+}
+
+#ai-tools-section .list-item, #personal-section .list-item, #appearance-section .list-item {
+  padding: 8px 8px;
+}
+
+#personal-section #email-section {
+  margin-bottom: 2px;
+}
+
+#personal-section .section-nested-group {
+  margin-left: 9px;
+      padding-left: 7px;
+      border-left: 1px solid var(--border);
+}
+
+#personal-section .section-nested-group #email-section .section-header-flex .section-title {
+  text-transform: none;
+      font-weight: 600;
+      letter-spacing: normal;
+      font-size: 13px;
+}
+
+.rail-email-badge {
+  position: absolute;
+      top: 1px;
+      right: 1px;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 3px;
+      border-radius: 7px;
+      background: var(--red);
+      color: var(--bg);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 14px;
+      text-align: center;
+      box-sizing: border-box;
+      pointer-events: none;
+      box-shadow: 0 0 0 1px var(--bg);
+      animation: rail-notes-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+.rail-email-badge {
+  animation: none;
+}
+
+}
+
+#dock-trash-zone {
+  position: fixed;
+  left: 50%;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  --trash-zone-color: var(--accent, var(--red, #e53935));
+  background: var(--accent, var(--red, #e53935));
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9000;
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--accent, var(--red, #e53935)) 55%, transparent);
+  transition: opacity 0.18s ease,
+                  transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 0.18s ease
+}
+
+.minimized-dock-chip[data-modal-id^="email-reader-"][data-tab-num]::after {
+  content: attr(data-tab-num);
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      background: var(--accent, var(--red));
+      color: var(--on-accent);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 16px;
+      text-align: center;
+      border-radius: 8px;
+      box-shadow: 0 0 0 2px var(--bg);
+      pointer-events: none;
+}
+
+.minimized-dock-chip[data-modal-id="email-lib-modal"][data-email-unread-label]::after {
+  content: attr(data-email-unread-label);
+      position: absolute;
+      top: -6px;
+      right: 10px;
+      height: 16px;
+      padding: 0 6px;
+      background: var(--accent, var(--red));
+      color: var(--on-accent);
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 16px;
+      white-space: nowrap;
+      border-radius: 8px;
+      box-shadow: 0 0 0 2px var(--bg);
+      pointer-events: none;
+}
+
+.section-header-flex h4,
+    .section-header-flex .section-title {
+  flex: 1; cursor: pointer; user-select: none;
+      display: flex; align-items: center; gap: 6px;
+      margin: 0; padding: 0; border: none;
+      font-size: 10px; font-weight: 700; font-family: inherit;
+      /* 1.3 (not 1) so Fira Code's tall glyph box isn't vertically clipped in
+         Chromium/Edge — mirrors the .list-item fix. The title is flex-centred
+         in a fixed-height (29px) header, so this adds headroom without reflow. */
+      line-height: 1.3; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--fg);
+}
+
+#email-unread-dot.sidebar-notif-dot.has-count {
+  width: auto;
+      height: 15px;
+      min-width: 15px;
+      padding: 0 4px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--bg, #0a0a0a);
+}
+
+.mail-pulse-banner {
+  position: fixed;
+      top: 60px;
+      right: 16px;
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: min(340px, calc(100vw - 32px));
+      padding: 10px 12px;
+      background: var(--panel);
+      border: 1px solid color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateX(24px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.mail-pulse-banner.mail-pulse-visible {
+  opacity: 1;
+      transform: translateX(0);
+      animation: mail-pulse-glow 1.8s ease-in-out 3;
+}
+
+@keyframes mail-pulse-glow {
+  0%, 100% {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
+                    0 0 0 0 color-mix(in srgb, var(--accent, var(--red)) 45%, transparent);
+      }
+      50% {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
+                    0 0 14px 3px color-mix(in srgb, var(--accent, var(--red)) 55%, transparent);
+      }
+}
+
+.mail-pulse-banner.mail-pulse-collapsing {
+  transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.38s ease;
+      transform: translate(var(--collapse-x, 0), var(--collapse-y, 0)) scale(0.15);
+      opacity: 0;
+      pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+.mail-pulse-banner.mail-pulse-collapsing {
+  transition: opacity 0.2s ease;
+        transform: none;
+}
+
+}
+
+.mail-pulse-avatar {
+  flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+}
+
+.mail-pulse-text {
+  flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+}
+
+.mail-pulse-title {
+  font-size: 11px;
+      font-weight: 700;
+      color: var(--accent, var(--red));
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+}
+
+.mail-pulse-sub {
+  font-size: 12px;
+      color: var(--fg);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+}
+
+.mail-pulse-close {
+  flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--fg);
+      opacity: 0.5;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+}
+
+.mail-pulse-close:hover {
+  opacity: 1;
+      background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+.mail-pulse-banner.mail-pulse-visible {
+  animation: none;
+}
+
+}
+
+@media (max-width: 768px) {
+
+.mail-pulse-banner {
+  left: 12px;
+        right: 12px;
+        max-width: none;
+        top: 56px;
+}
+
+}
+
+#welcome-screen .welcome-sub {
+  font-size:0.85rem;
+      color:color-mix(in srgb, var(--fg) 65%, transparent);
+      text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg);
+      line-height:1.5;
+      max-width:300px;
+}
+
+#welcome-screen .welcome-version {
+  font-size:0.7rem;
+      color:color-mix(in srgb, var(--fg) 45%, transparent);
+      text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg);
+      margin-top:12px;
+      pointer-events:none;
+      user-select:none;
+}
+
+#welcome-screen .welcome-tip {
+  font-size:0.75rem;
+      color:color-mix(in srgb, var(--fg) 55%, transparent);
+      text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg);
+      margin-top:24px;
+      max-width:320px;
+      line-height:1.4;
+}
+
+.msg-user {
+  align-items: flex-start;
+      margin-left: auto;
+      margin-right: 8px;
+      background: var(--user-bubble-bg, color-mix(in srgb, var(--fg) 8%, var(--bg)));
+      border: 1px solid var(--bubble-border, var(--border));
+      border-radius: 18px 18px 0 18px;
+      align-self: flex-end;
+      width: fit-content;
+      max-width: 85%;
+      min-width: 80px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      overflow: hidden;
+}
+
+.msg .role.has-logo::before,
+    .msg .role.has-avatar::before {
+  display: none;
+}
+
+.msg-user-avatar {
+  width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--fg) 14%, transparent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--fg);
+      flex-shrink: 0;
+      background-size: cover;
+      background-position: center;
+      overflow: hidden;
+}
+
+.chat-input-bar {
+  background: var(--input-bg, var(--panel));
+	      border: 1px solid var(--input-border, var(--border));
+	      border-radius: 16px;
+	      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+      transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+body.plan-mode-active .chat-input-bar {
+  border-style: dashed;
+      border-color: color-mix(in srgb, var(--accent, var(--red)) 55%, transparent);
+      background: color-mix(in srgb, var(--accent, var(--red)) 8%, var(--input-bg, var(--panel)));
+}
+
+.chat-input-top {
+  width: 100%;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start
+}
+
+.plan-mode-status {
+  position: absolute;
+      right: 0;
+      bottom: 2px;
+      z-index: 245;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 22px;
+      padding: 0 6px 0 8px;
+      border: 1px solid color-mix(in srgb, var(--accent, var(--red)) 35%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent, var(--red)) 12%, var(--input-bg, var(--panel)));
+      color: var(--accent, var(--red));
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.plan-mode-status.plan-mode-status-autohide {
+  opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px) scale(0.96);
+}
+
+.plan-mode-status-toggle {
+  width: 26px;
+      height: 14px;
+      padding: 0;
+      border: 1px solid color-mix(in srgb, var(--accent, var(--red)) 55%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent, var(--red)) 22%, transparent);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+}
+
+.plan-mode-status-toggle span {
+  position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent, var(--red));
+}
+
+.chat-input-top > .model-picker-wrap {
+  position: absolute;
+  grid-column: 2;
+  grid-row: 1;
+  top: 0;
+  right: 0;
+  z-index: 250;
+  transform-origin: top right;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  will-change: opacity, transform
+}
+
+li.task-item {
+  list-style: none;
+      margin-left: -1.2em;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+}
+
+.plan-window-content {
+  width: 520px;
+      max-width: 92vw;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+}
+
+.plan-window-body {
+  overflow-y: auto;
+      padding: 14px 18px;
+      flex: 1 1 auto;
+      line-height: 1.55;
+}
+
+.plan-window-footer {
+  padding: 10px 18px;
+      border-top: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+      display: flex;
+      justify-content: flex-end;
+}
+
+.plan-inline-actions {
+  display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px;
+}
+
+.plan-inline-execute,
+    .plan-inline-clear {
+  height: 26px;
+      border-radius: 7px;
+      border: 1px solid color-mix(in srgb, var(--fg) 13%, transparent);
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      font-size: 11px;
+      padding: 0 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+}
+
+.plan-inline-execute {
+  background: color-mix(in srgb, var(--accent, var(--red)) 16%, transparent);
+      border-color: color-mix(in srgb, var(--accent, var(--red)) 35%, transparent);
+      color: var(--accent, var(--red));
+      font-weight: 650;
+}
+
+.send-btn {
+  /* Prefer the theme accent (--red). A stored custom `--send-btn-bg`
+         override only kicks in if it's set to a non-white value — guards
+         against ChatGPT-style themes where the stored override leaked
+         to white and rendered the send button invisible. */
+      background: var(--send-btn-bg, var(--red));
+      color: var(--on-accent);
+      border: none;
+      border-radius: 8px;
+      min-width: 32px;
+      width: 32px;
+      height: 32px !important;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.25s, border-color 0.25s, color 0.25s, width 0.3s cubic-bezier(0.34, 1, 0.64, 1), padding 0.3s, border-radius 0.3s, opacity 0.1s;
+      flex-shrink: 0;
+      overflow: hidden;
+}
+
+.send-btn:hover {
+  background: var(--send-btn-hover, color-mix(in srgb, var(--red) 80%, white));
+      color: var(--on-accent);
+}
+
+.send-btn.mic-mode:hover,
+    .send-btn.newchat-mode:hover {
+  background: color-mix(in srgb, var(--send-btn-hover, var(--send-btn-bg, var(--red))) 85%, var(--panel, #2a2a2a));
+      color: var(--on-accent);
+}
+
+.send-btn.recording {
+  background: var(--red) !important;
+      color: var(--on-accent) !important;
+      border: none !important;
+      animation: pulse-recording 1.5s infinite;
+}
+
+pre.editing::before {
+  content: 'EDITING';
+      position: absolute; top: 0; left: 0;
+      padding: 2px 8px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+      background: var(--accent-primary, var(--red));
+      color: var(--on-accent);
+      border-radius: 0 0 4px 0;
+      z-index: 2;
+      pointer-events: none;
+}
+
+.modal-content {
+  background:var(--panel);
+      border:1px solid var(--border);
+      width:min(520px, 92vw); max-height:85vh; padding:10px;
+      box-sizing:border-box; font-size:14px;
+      /* Was hardcoded to Inter regardless of the Theme > Customize Font
+         setting — every modal ignored it while the rest of the app (body,
+         style.css:105) honored it. Match that fallback chain so modals
+         follow the same font choice. Dropped the Inter-tuned negative
+         letter-spacing along with it — it doesn't apply to the monospace
+         default and body doesn't use it either. */
+      font-family: var(--font-family, 'Fira Code', monospace);
+      display:flex; flex-direction:column;
+      position:relative;
+      overflow-y:auto;
+      border-radius:10px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.45);
+      pointer-events:auto;
+      animation: modal-enter 0.25s ease-out both;
+}
+
+.confirm-btn-primary {
+  background:var(--accent-primary, var(--red, #4a9eff)); color: var(--on-accent); border-color:transparent;
+}
+
+.theme-delete-btn {
+  position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: var(--accent, var(--red, #d92534));
+      color: var(--on-accent);
+      cursor: pointer;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      transition: transform 0.12s, background 0.12s;
+}
+
+.theme-fd-row {
+  display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+}
+
+.theme-fd-group {
+  flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+
+#theme-frosted-group, #theme-neon-group {
+  flex: 0 0 auto;
+}
+
+.thumb.thumb-image button {
+  position: absolute;
+  /* Sit on the top-right corner edge as an accent badge. */
+  top: -7px;
+  right: -7px;
+  width: 24px;
+  height: 24px;
+  min-width: 0;
+  padding: 0;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent-primary, var(--red));
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  z-index: 3;
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+
+.attach-crop-primary {
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+  border-color: var(--accent, var(--red));
+}
+
+@media (max-width: 768px) {
+
+.thumb-collapsed .thumb-collapsed-x {
+  position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 24px;
+    height: 24px;
+    min-width: 0;
+    padding: 0;
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+    background: var(--accent-primary, var(--red));
+    color: var(--on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    line-height: 1;
+    z-index: 3;
+    opacity: 1;
+}
+
+}
+
+.stall-banner-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.doc-action-icon-btn:disabled {
+  opacity: 0.12;
+  cursor: default;
+  pointer-events: none;
+}
+
+.doc-suggestion-accept {
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+}
+
+.admin-btn-add {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--red);
+  color: var(--on-accent);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: all 0.15s
+}
+
+.admin-rag-dir-row button {
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: var(--red);
+  color: var(--on-accent);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+
+#email-lib-modal .email-lib-fab {
+  --fab-size: 56px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  /* Hidden until the email list has rendered; JS adds .fab-revealed to pop
+       it in (scale-from-center). Avoids the button flashing at the top and
+       sliding down before _positionFab() places it. */
+    transform: scale(0);
+  opacity: 0;
+  transform-origin: center center;
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  height: var(--fab-size);
+  min-width: var(--fab-size);
+  padding: 0 20px 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-primary, var(--red));
+  color: var(--on-accent);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.38), 0 2px 6px rgba(0,0,0,.28);
+  z-index: 30;
+  pointer-events: auto;
+  /* This (base) transition governs the EXPAND — slower + graceful. */
+    transition:
+      padding 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 240ms ease,
+      transform 140ms ease,
+      background 140ms ease;
+  will-change: padding, transform
+}
+
+}
+
+body [data-act="from-sender"] {
+  display: none !important;
+}
+
+.doc-editor-pane.email-dragover::after {
+  content: 'Drop to attach';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent, #2563eb);
+  color: var(--on-accent);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.vision-editor-btn-primary {
+  background: var(--accent-primary, var(--red));
+  color: var(--on-accent); border-color: transparent;
+}
+
+.gallery-bulk-delete:hover {
+  background: var(--red); color: var(--on-accent);
+}
+
+#hwfit-cache-select.active {
+  background: var(--red);
+  color: var(--on-accent);
+  border-color: var(--red);
+}
+
+.cookbook-slot-btn.active {
+  opacity: 1; background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+}
+
+.cookbook-dep-install {
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  position: relative;
+  top: -3px;
+  width: 87.7px;
+  min-width: 87.7px;
+  padding: 0 10px;
+  /* Strip the native button box so it's the same height as the sibling tags
+     (Firefox renders <button> taller otherwise); height comes from .cookbook-dep-tag. */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.hwfit-serve-launch {
+  background: var(--accent-primary, var(--red));
+  color: var(--on-accent);
+  border: 1px solid var(--accent-primary, var(--red));
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.cookbook-dl-btn {
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+  border: none;
+  border-radius: 4px;
+  padding: 0 14px;
+  height: 28px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: -4px;
+}
+
+.hwfit-panel-hf-link:hover {
+  color: var(--on-accent);
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.cookbook-server-rm:hover {
+  opacity: 1;
+  background: var(--red);
+  color: var(--on-accent);
+  border-color: var(--red);
+}
+
+.hwfit-gpu-btn.active {
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+  border-color: var(--accent, var(--red));
+}
+
+.task-btn-primary {
+  background: var(--red);
+  color: var(--on-accent);
+  border-color: transparent;
+  opacity: 1;
+}
+
+.ge-tool-clear {
+  position: absolute !important;
+  top: 3px;
+  right: 3px;
+  width: 14px;
+  height: 14px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--on-accent);
+  background: var(--red);
+  cursor: pointer;
+  opacity: 0.95;
+  z-index: 2;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--red) 70%, transparent),
+              0 1px 4px color-mix(in srgb, var(--red) 50%, transparent);
+  transition: opacity 0.12s, transform 0.12s, box-shadow 0.12s;
+  left: auto !important;
+}
+
+.ge-ai-command-run {
+  position: relative;
+  top: -2px;
+  background: var(--send-btn-bg, var(--red));
+  color: var(--on-accent);
+  border: none;
+  border-radius: 8px;
+  min-width: 32px;
+  width: 32px;
+  height: 32px !important;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transition: background 0.25s, opacity 0.12s;
+  overflow: hidden;
+}
+
+.ge-btn-primary {
+  background: var(--red);
+  color: var(--on-accent);
+  border-color: var(--red);
+  font-weight: 600;
+}
+
+.ge-slider-bubble {
+  /* Fixed positioning so the bubble escapes any overflow:hidden/auto
+     on the slider's ancestor chain (the layers list clips, and used
+     to swallow the bubble entirely). JS sets viewport-relative
+     left/top; the translate centers and lifts the bubble above the
+     slider thumb. */
+  position: fixed;
+  transform: translate(-50%, -100%);
+  z-index: 10000;
+  padding: 5px 10px;
+  background: var(--red);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--red) 40%, transparent);
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.ge-crop-apply-btn {
+  padding: 4px 10px;
+  background: var(--red);
+  color: var(--on-accent);
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  top: -2px;
+}
+
+#group-model-picker .btn-primary {
+  background: var(--accent, var(--red));
+  color: var(--on-accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.email-done-check.active {
+  background: var(--accent, #4a9eff); border-color: var(--accent, #4a9eff); color: var(--on-accent);
+}
+
+@container emailreader (max-width: 450px) {
+
+.email-reader-meta > .email-reader-actions-inline {
+  /* 6 icons (30px each) + 5 gaps (4px each) = 200px exact + 8px slack
+       so subpixel rounding can't wrap a 7th... icon onto its own row
+       (there are only 6, but the margin keeps this robust if a 7th
+       action is ever added). */
+    min-width: 208px;
+    max-width: 208px;
+    flex-wrap: nowrap;
+    /* Solid background so the email body content behind the cluster
+       doesn't peek through the gaps between icons. */
+    background: var(--bg);
+}
+
+.email-reader-meta > .email-reader-actions-inline .memory-toolbar-btn.reader-icon-btn {
+  width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    height: 30px;
+    padding: 0;
+}
+
+.email-reader-meta > .email-reader-actions-inline .reader-btn-label {
+  /* Name still reachable via the button's title="..." tooltip. */
+    display: none;
+}
+
+.email-reader-meta-row.email-reader-meta-from,
+  .email-reader-meta > .email-reader-meta-details {
+  padding-right: 220px;
+}
+
+.email-reader-meta {
+  min-height: 40px;
+}
+
+}
+
+@container emailreader (max-width: 380px) {
+
+.email-reader-meta > .email-reader-actions-inline {
+  /* Keep the same -7px lift as the medium-width state so the
+       cluster doesn't slide ~4px DOWN when it transitions into
+       overlay mode. */
+    /* margin-top stays inherited at -7px from the base rule. */
+    /* 208px content + 22px padding-left so the inner row still fits
+       6 icons cleanly. */
+    min-width: 230px;
+    max-width: 230px;
+    background: linear-gradient(to right, transparent 0, var(--bg) 18px);
+    padding-left: 22px;
+    /* Soft shadow on the left edge so the overlap reads as the
+       cluster "floating over" the chip. */
+    box-shadow: -6px 0 12px -6px rgba(0, 0, 0, 0.25);
+}
+
+}
+
+@media (max-width: 768px) {
+
+.memory-toolbar-btn[data-mode="ai-reply-fast"],
+  .memory-toolbar-btn[data-mode="ai-reply-full"] {
+  height: 30px !important;
+    min-height: 30px !important;
+}
+
+}
+
+.email-reader-actions-inline .reader-icon-btn[data-act="from-sender"] svg {
+  color: var(--accent-primary, var(--red));
+  stroke: var(--accent-primary, var(--red));
+}
+
+.email-inline-image-btn[data-email-img-load] {
+  transform: translateY(-4px);
+}
+
+.schedule-send-confirm {
+  background: var(--accent-primary, var(--red)) !important;
+  color: var(--on-accent) !important;
+  border-color: var(--accent-primary, var(--red)) !important;
+}
+
+.email-avatar {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--accent, #4a9eff);
+  color: var(--on-accent); display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; flex-shrink: 0; margin-top: 1px;
+}
+
+.email-3pane {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.email-pane-folders {
+  width: 190px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border);
+  padding: 6px;
+  box-sizing: border-box;
+  transition: width 0.15s ease, padding 0.15s ease;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders {
+  /* !important: beats the inline width the drag-resize handle (emailLibrary.js)
+     may have set from a saved custom width — collapse must always win. */
+  width: 40px !important;
+  padding: 6px 2px;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders #email-lib-accounts {
+  display: none;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders .email-accounts-row {
+  justify-content: center;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders .email-compose-label {
+  display: none;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders #email-lib-compose-btn svg {
+  margin-right: 0;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders .section-header-flex {
+  display: none;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders .list-item {
+  justify-content: center;
+  padding: 8px 2px;
+  position: relative;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders .list-item .grow {
+  display: none;
+}
+
+.email-3pane.email-folders-collapsed .email-pane-folders .email-folder-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 7px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  font-size: 0;
+  border-radius: 50%;
+}
+
+.email-pane-resize-handle {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+}
+
+.email-pane-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 2px;
+  width: 1px;
+  background: transparent;
+}
+
+.email-pane-resize-handle:hover::after,
+.email-pane-resize-handle.dragging::after {
+  background: var(--accent, var(--red));
+}
+
+.email-3pane.email-folders-collapsed #email-resize-folders {
+  display: none;
+}
+
+.email-lib-folders-toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.email-3pane.email-folders-collapsed .email-lib-folders-toggle svg {
+  transform: rotate(180deg);
+}
+
+.email-pane-folders .section {
+  margin-top: 4px;
+}
+
+.email-pane-folders .list-item {
+  cursor: pointer;
+  gap: 8px;
+}
+
+.list-item .email-folder-badge {
+  flex-shrink: 0;
+  min-width: 16px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  background: var(--red);
+  color: var(--bg);
+}
+
+.email-pane-list {
+  flex: 1 1 380px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  padding: 6px 10px 0;
+  box-sizing: border-box;
+}
+
+.email-list-toolbar,
+.email-list-subtoolbar {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.email-list-subtoolbar {
+  padding-top: 0;
+  opacity: 0.7;
+  font-size: 10px;
+}
+
+.email-row-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.email-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 6%, transparent);
+  transition: background 0.1s;
+}
+
+.email-row:hover {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+}
+
+.email-row.active {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+
+.email-row-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.email-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.email-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.email-row-sender {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.email-row.unread .email-row-sender {
+  font-weight: 700;
+}
+
+.email-row-date {
+  flex-shrink: 0;
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.email-row-subject {
+  font-size: 11px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-row-indicator {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 6px;
+  background: var(--accent, var(--red));
+  opacity: 0;
+}
+
+.email-row.unread .email-row-indicator {
+  opacity: 1;
+}
+
+.email-pane-reader-wrap {
+  flex: 1 1 480px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.email-pane-reader {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  box-sizing: border-box;
+}
+
+.email-pane-mobile-back {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary, var(--text));
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.email-pane-mobile-back:hover {
+  color: var(--accent, var(--red));
+}
+
+.email-pane-reader-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+  font-size: 12px;
+}
+
+.email-reader-subject-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.email-reader-subject {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.email-reader-subject-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.email-reader-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+
+.email-3pane {
+  position: relative;
+}
+
+.email-pane-folders,
+  .email-pane-list,
+  .email-pane-reader-wrap {
+  display: none;
+    /* !important: desktop drag-resize (emailLibrary.js) sets inline
+       width/flex on these same elements, which would otherwise beat this
+       media query and leave a resized pane's width stuck on mobile. */
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    border-right: none;
+}
+
+.email-3pane.email-mobile-show-folders .email-pane-folders,
+  .email-3pane.email-mobile-show-list .email-pane-list,
+  .email-3pane.email-mobile-show-reader .email-pane-reader-wrap {
+  display: flex;
+    flex-direction: column;
+}
+
+.email-3pane.email-mobile-show-list #email-lib-back-to-folders,
+  .email-3pane.email-mobile-show-reader #email-lib-back-to-list {
+  display: flex;
+}
+
+.email-pane-resize-handle,
+  .email-lib-folders-toggle {
+  display: none !important;
+}
+
+.email-pane-list {
+  padding: 6px 4px 0;
+}
+
+}
+
+.reader-reply-btn {
+  position: relative;
+}
+
+.reader-reply-btn::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 3px solid currentColor;
+  opacity: 0.55;
+}
+
+.email-odysseus-attach-selected {
+  height: 28px;
+  min-width: 72px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--red)) 45%, var(--border));
+  background: var(--accent-primary, var(--red));
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.note-card-selected .note-card-select {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  opacity: 1;
+}
+
+.note-reminder-tag-x:hover {
+  background: var(--red); color: var(--on-accent);
+}
+
+.note-reminder-day-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+button.cal-add-btn {
+  background:var(--accent); color: var(--on-accent); border:none; border-radius:50%; width:24px; height:24px; line-height:22px; font-size:18px; cursor:pointer; flex-shrink:0; padding:0; box-sizing:border-box; font-family:inherit; vertical-align:middle; text-align:center;
+}
+
+.email-search-wrap.email-reminder-bell-hidden .memory-search-input {
+  padding-right: 150px !important;
+}
+
+@media (max-width: 768px) {
+
+.email-search-wrap.email-reminder-bell-hidden .memory-search-input {
+  padding-right: 150px !important;
+}
+
+}
+
+#email-lib-accounts {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  /* The scrollbar is hidden above, so a second/third account otherwise
+     looks clipped rather than "one scroll away" -- fade the right edge
+     as a scroll hint. Harmless when nothing overflows (nothing to fade). */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+}
+
+.email-account-chip.email-account-has-unread {
+  border-color: color-mix(in srgb, var(--accent, var(--red)) 22%, var(--border));
+  color: color-mix(in srgb, var(--accent, var(--red)) 55%, var(--fg));
+}
+
+#email-lib-accounts .email-account-chip.active {
+  border-color: var(--accent, var(--red));
+  background: color-mix(in srgb, var(--accent, var(--red)) 22%, transparent);
+  color: var(--accent, var(--red));
+  font-weight: 600;
+}
+
+.email-lib-default-dot:hover {
+  opacity: 1 !important;
+  color: var(--accent, var(--red)) !important;
+}
+
+#email-lib-modal .email-lib-sync-status {
+  flex: 0 0 auto;
+  min-height: 14px;
+  padding: 1px 4px 0;
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-align: center;
+  opacity: 0.58;
+  color: var(--muted-text, currentColor);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-year-day:hover {
+  background:var(--accent, var(--red)); color: var(--on-accent); opacity:1; transform:scale(1.15); font-weight:700; z-index:2; position:relative;
+}
+
+.research-start-btn {
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  height:28px;
+  padding:6px 16px;
+  border:none;
+  border-radius:6px;
+  background:var(--accent-primary, var(--red));
+  color: var(--on-accent);
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:opacity 0.15s
+}
+
+@keyframes neon-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px color-mix(in srgb, var(--border) 50%, transparent),
+                0 0 10px color-mix(in srgb, var(--border) 25%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--border) 70%, transparent),
+                0 0 18px color-mix(in srgb, var(--border) 40%, transparent),
+                0 0 28px color-mix(in srgb, var(--border) 15%, transparent);
+  }
+}
+
+body.neon-glow .msg-user,
+body.neon-glow .msg-ai,
+body.neon-glow .chat-input-area,
+body.neon-glow .admin-card,
+body.neon-glow .modal-content,
+body.neon-glow #sidebar {
+  animation: neon-glow-pulse 3s ease-in-out infinite;
+}
+
+.rss-pane-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+  animation: rss-backdrop-fade-in 180ms ease both;
+}
+
+.rss-pane-backdrop .rss-pane {
+  pointer-events: auto;
+}
+
+@keyframes rss-backdrop-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.rss-pane {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  width: min(880px, 92vw);
+  height: min(85vh, 820px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+  animation: rss-pane-enter 200ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+@keyframes rss-pane-enter {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@media (max-width: 768px) {
+
+.rss-pane {
+  position: fixed;
+    inset: 0;
+    max-width: 100%;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    z-index: 170;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 14px 14px 0 0;
+    overflow: hidden;
+    animation: sheet-enter 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: bottom center;
+}
+
+.rss-pane-backdrop {
+  background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+}
+
+.rss-pane-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.rss-pane-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.rss-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.rss-sidebar {
+  width: 220px;
+  min-width: 180px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rss-sidebar-header {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rss-sidebar-header .memory-search-input {
+  height: 32px;
+  min-height: 32px;
+  margin-top: 0;
+  font-size: 12px;
+  padding: 0 10px 0 30px;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-opacity='0.85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+  border-radius: 7px;
+  transition: border-color 0.15s;
+}
+
+.rss-filter-bar {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 2px;
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.rss-filter-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.rss-filter-btn:hover {
+  opacity: 0.9;
+  background: rgba(128,128,128,0.1);
+}
+
+.rss-filter-btn.active {
+  opacity: 1;
+  font-weight: 600;
+  background: var(--accent-primary, var(--fg));
+  color: var(--accent-on, var(--bg));
+}
+
+.rss-feed-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.rss-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 42px 7px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.rss-feed-item:hover {
+  background: rgba(128,128,128,0.1);
+}
+
+.rss-feed-item.active {
+  background: rgba(128,128,128,0.15);
+}
+
+.rss-feed-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 10px;
+  color: var(--text-dim);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.15s;
+}
+
+.rss-feed-item:hover .rss-feed-drag-handle {
+  opacity: 0.45;
+}
+
+.rss-feed-drag-handle:hover {
+  opacity: 0.9 !important;
+}
+
+.rss-feed-item.dragging .rss-feed-drag-handle {
+  cursor: grabbing;
+  opacity: 0.9;
+}
+
+.rss-group-header-ungrouped {
+  cursor: default;
+}
+
+.rss-feed-delete {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.rss-feed-interval {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.rss-feed-item:hover .rss-feed-delete,
+.rss-feed-item:hover .rss-feed-interval {
+  opacity: 0.55;
+}
+
+.rss-feed-delete:hover {
+  opacity: 1 !important;
+  color: var(--red);
+  background: rgba(200,50,50,0.15);
+}
+
+.rss-feed-interval:hover {
+  opacity: 1 !important;
+  color: var(--fg);
+  background: rgba(128,128,128,0.15);
+}
+
+.rss-feed-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fg) 16%, transparent);
+  color: var(--fg);
+  overflow: hidden;
+}
+
+.rss-feed-icon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.rss-feed-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rss-unread-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--red);
+  color: var(--bg);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.rss-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.72;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.rss-group-header.rss-group-root {
+  margin-top: 8px;
+}
+
+.rss-group-header.rss-group-root:first-child {
+  margin-top: 0;
+}
+
+.rss-group-header:hover {
+  background: rgba(128,128,128,0.08);
+}
+
+.rss-group-header.active {
+  opacity: 1;
+  background: rgba(128,128,128,0.12);
+}
+
+.rss-group-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rss-group-toggle {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 3px;
+  transition: background 0.12s, opacity 0.12s;
+}
+
+.rss-group-toggle:hover {
+  opacity: 1;
+  background: rgba(128,128,128,0.15);
+}
+
+.rss-group-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.rss-group-header:hover .rss-group-actions,
+.rss-group-header.active .rss-group-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rss-group-add-sub,
+.rss-group-rename,
+.rss-group-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 4px;
+  opacity: 0.65;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.rss-group-add-sub:hover,
+.rss-group-rename:hover {
+  opacity: 1;
+  color: var(--fg);
+  background: rgba(128,128,128,0.18);
+}
+
+.rss-group-delete:hover {
+  opacity: 1;
+  color: var(--red);
+  background: rgba(200,50,50,0.18);
+}
+
+.rss-groups-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 2px 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rss-groups-header span {
+  flex: 1;
+  opacity: 0.55;
+}
+
+.rss-groups-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.65;
+  border-radius: 5px;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.rss-groups-add:hover {
+  opacity: 1;
+  background: rgba(128,128,128,0.15);
+}
+
+.rss-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rss-feed-checkbox {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+  margin: 0;
+  transition: opacity 0.15s, width 0.15s, margin 0.15s;
+}
+
+.rss-feed-item .rss-feed-checkbox {
+  margin-right: 4px;
+}
+
+.rss-feed-checkbox.rss-checkbox-hidden {
+  width: 0;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.rss-select-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.12s, background 0.12s;
+  flex-shrink: 0;
+  margin-left: 0;
+}
+
+.rss-select-mode-btn svg {
+  flex-shrink: 0;
+}
+
+.rss-select-mode-btn:hover {
+  opacity: 1;
+  background: rgba(128,128,128,0.1);
+}
+
+.rss-select-mode-btn.active {
+  opacity: 1;
+  background: var(--accent-primary);
+  color: var(--bg);
+  border-color: var(--accent-primary);
+}
+
+.rss-summarize-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: rgba(128,128,128,0.04);
+}
+
+.rss-summarize-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.12s;
+}
+
+.rss-summarize-btn:hover {
+  background: rgba(128,128,128,0.1);
+}
+
+.rss-summary-panel {
+  margin: 8px 12px;
+  padding: 10px 12px;
+  background: rgba(128,128,128,0.06);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-left: 3px solid var(--accent-primary);
+}
+
+.rss-summary-panel h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.rss-summary-panel p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.rss-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rss-article-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rss-empty-state {
+  padding: 56px 24px;
+  text-align: center;
+  opacity: 0.45;
+  font-size: 13px;
+}
+
+.rss-article-item {
+  display: flex;
+  gap: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.rss-article-item:hover {
+  background: rgba(128,128,128,0.05);
+}
+
+.rss-article-item.active {
+  background: rgba(128,128,128,0.1);
+}
+
+.rss-article-read {
+  opacity: 0.6;
+}
+
+.rss-article-thumb {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rss-article-thumb {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--border);
+}
+
+.rss-article-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.rss-article-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  line-height: 1.35;
+}
+
+.rss-article-meta {
+  font-size: 11px;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.rss-article-feed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rss-article-feed img {
+  border-radius: 2px;
+}
+
+.rss-article-time {
+  flex-shrink: 0;
+}
+
+.rss-starred-indicator {
+  color: var(--red);
+  font-size: 11px;
+}
+
+.rss-article-snippet-empty {
+  font-style: italic;
+  opacity: 0.4 !important;
+}
+
+.rss-article-snippet {
+  font-size: 12px;
+  opacity: 0.6;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.rss-reader {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rss-reader-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rss-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 3px 2px;
+  background: var(--border);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.rss-reader-toolbar .doc-action-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.rss-reader-toolbar .doc-action-icon-btn:disabled {
+  opacity: 0.15;
+}
+
+.rss-reader-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.rss-reader-header {
+  margin-bottom: 20px;
+}
+
+.rss-reader-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+.rss-reader-meta {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.rss-reader-body {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.rss-reader-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.rss-reader-body p {
+  margin: 0 0 12px;
+}
+
+.rss-reader-placeholder {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.rss-reader-summary {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border-left: 3px solid var(--red);
+  background: rgba(128,128,128,0.08);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.rss-reader-summary-loading {
+  animation: rss-summary-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes rss-summary-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.rss-reader-summary h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.rss-star-active svg {
+  fill: var(--red);
+  stroke: var(--red);
+}
+
+.rss-spinning svg {
+  animation: rss-spin 1s linear infinite;
+}
+
+@keyframes rss-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.rss-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.rss-modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 420px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.rss-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rss-modal-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.rss-modal-close {
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 0 4px;
+}
+
+.rss-modal-close:hover {
+  opacity: 1;
+}
+
+.rss-modal-body {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rss-modal-body label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.rss-modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.primary-btn {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--red);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-btn {
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rss-video-player {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+}
+
+.rss-video-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #fff;
+  transition: background 0.2s;
+  pointer-events: none;
+}
+
+.rss-video-player:hover .rss-video-play-btn {
+  background: #ff0000;
+}
+
+#rss-video-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0,0,0,0.92);
+  align-items: center;
+  justify-content: center;
+}
+
+.rss-video-modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 960px;
+}
+
+.rss-video-modal-player {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rss-video-modal-player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.rss-video-modal-close {
+  position: absolute;
+  top: -44px;
+  right: 0;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.rss-video-modal-close:hover {
+  opacity: 1;
+}
+
+.rss-video-modal-link {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  color: #aaa;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.rss-video-modal-link:hover {
+  color: #fff;
+}
+
+.sudo-prompt-modal {
+  z-index: 10050;
+  background: color-mix(in srgb, #000 45%, transparent);
+}
+
+.sudo-prompt-content {
+  width: min(440px, 92vw);
+  margin: 12vh auto 0;
+  border-color: color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));
+}
+
+.sudo-prompt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px 2px;
+}
+
+.sudo-prompt-intro {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.sudo-prompt-command {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sudo-prompt-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.sudo-prompt-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.sudo-prompt-input:focus {
+  outline: none;
+  border-color: var(--accent, var(--red));
+}
+
+.sudo-prompt-remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+.sudo-prompt-remember input {
+  cursor: pointer;
+}
+
+.sudo-prompt-note {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  opacity: 0.55;
+}
+
+.sudo-prompt-note.sudo-prompt-error {
+  opacity: 1;
+  color: var(--accent, var(--red));
+}
+
+.sudo-prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sudo-prompt-submit {
+  border-color: color-mix(in srgb, var(--accent, var(--red)) 55%, var(--border));
+  color: var(--accent, var(--red));
+}
+
+.sudo-prompt-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#gotham-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gotham-fx-cloud {
+  position: absolute;
+  top: 0;
+  border-radius: 50%;
+  background: var(--fg);
+  filter: blur(50px);
+  opacity: 0.055;
+  animation-name: gotham-fx-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.gotham-fx-cloud.c1 {
+  width: 42vw; height: 16vh; top: 8%;  animation-duration: 95s;
+}
+
+.gotham-fx-cloud.c2 {
+  width: 30vw; height: 12vh; top: 22%; animation-duration: 130s; animation-delay: -40s;
+}
+
+.gotham-fx-cloud.c3 {
+  width: 50vw; height: 18vh; top: 38%; animation-duration: 160s; animation-delay: -90s;
+}
+
+@keyframes gotham-fx-drift {
+  from { transform: translateX(-60vw); }
+  to   { transform: translateX(110vw); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+.gotham-fx-cloud {
+  animation: none; left: 20%;
+}
+
+}
+
+.gotham-fx-beam {
+  position: absolute;
+  left: 10%;
+  bottom: 0;
+  width: 60vw;
+  max-width: 700px;
+  height: 72vh;
+  transform-origin: bottom center;
+  clip-path: polygon(47% 100%, 53% 100%, 100% 0%, 0% 0%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--red) 22%, transparent), transparent 72%);
+  animation: gotham-fx-sweep 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+.gotham-fx-beam {
+  animation: none;
+}
+
+}
+
+@keyframes gotham-fx-sweep {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(10deg); }
+}
+
+.gotham-fx-skyline {
+  /* Fills the layer rather than a fixed vh band: the image is placed
+     bottom-anchored at 100% width, so a short element clips its own top --
+     which is exactly where the moon and the figure live. */
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  /* contain, not cover: cover crops the sky and cuts the moon and the
+     figure out of frame. The SVG's own sky gradient already fades to
+     transparent at the top, so no extra CSS mask is needed. */
+  /* ?v= is this project's existing cache-busting convention (see the
+     ?v=... suffixes on the script tags in index.html). Needed here
+     because sw.js serves /static images cache-first and the server
+     sends no cache-control on them, so a changed scene would keep
+     rendering the stale one until the SW cache was purged. */
+  background: url("/static/icons/gotham-scene.svg?v=2") bottom center / 100% auto no-repeat;
+}
+
+@media (max-width: 768px) {
+
+.gotham-fx-skyline {
+  opacity: 0.45;
+}
+
+}

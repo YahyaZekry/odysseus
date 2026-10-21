@@ -1,10 +1,7 @@
 import asyncio
-<<<<<<< HEAD
-import fcntl
-=======
 import ast
+import fcntl
 import logging
->>>>>>> upstream/dev
 import os
 import pty
 import re
@@ -16,7 +13,7 @@ import sys
 import termios
 import time
 import json
-from typing import Optional
+from typing import Optional, Callable, Awaitable, Tuple, Dict
 from urllib.parse import urlparse, urlsplit, urlunsplit
 
 import httpx
@@ -37,6 +34,9 @@ _HOST_SHELL_BRIDGE_HOSTS = {"127.0.0.1", "localhost", "::1", "host.docker.intern
 IS_WINDOWS = sys.platform.startswith("win")
 _HOST_SHELL_CANCEL_TASKS: set[asyncio.Task] = set()
 
+PROGRESS_INTERVAL_S = 2.0
+
+# ── Sudo broker (fork feature) ──
 # A `sudo` invocation at the start of the command or right after a shell
 # separator. Anchored this way so we don't rewrite the word "sudo" appearing
 # inside a quoted string or a longer identifier.
@@ -237,14 +237,6 @@ def _redact(text: str, secret: Optional[str]) -> str:
         return text
     return text.replace(secret, "********")
 
-
-# ── tmux-backed persistent shell sessions ──
-# When the agent loop passes a session_id and `tmux` is on PATH, bash commands
-# run inside a persistent tmux session keyed to that conversation instead of a
-# fresh one-shot subprocess -- so `cd`, exported env vars, and background jobs
-# started in one bash call are still there for the next one. Falls back to the
-# plain one-shot subprocess path (with the sudo/pty handling above) whenever
-# there's no session_id or tmux isn't installed.
 
 def _ffmpeg_unicode_drawtext_needs_fontfile(command: str) -> bool:
     """Require a deliberate font for non-ASCII text rendered by ffmpeg.
@@ -595,82 +587,6 @@ def _filesystem_boundary_block(mechanism: str, mode: str, *, confined: bool) -> 
 def _contained_command(
     content: str,
     cwd: str,
-<<<<<<< HEAD
-    env: Optional[dict],
-    timeout: float,
-    progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
-) -> Tuple[str, str, Optional[int], bool]:
-    name = _tmux_session_name(session_id)
-    await _ensure_tmux_session(name, cwd, env)
-
-    stamp = f"{int(time.time() * 1000)}-{abs(hash(content)) % 1000000}"
-    start_marker = f"__ODYSSEUS_CMD_START_{stamp}__"
-    end_prefix = f"__ODYSSEUS_CMD_END_{stamp}__:"
-    wrapped = (
-        f"printf '\\n{start_marker}\\n'\n"
-        f"{content}\n"
-        f"__ody_rc=$?\n"
-        f"printf '\\n{end_prefix}%s\\n' \"$__ody_rc\"\n"
-    )
-    for line in wrapped.splitlines():
-        await _tmux_send_line(name, line)
-
-    started = time.time()
-    last_tail = ""
-    while True:
-        capture = await _tmux_capture(name)
-        body, done = _output_after_marker(capture, start_marker, end_prefix)
-        tail = "\n".join(body.splitlines()[-PROGRESS_TAIL_LINES:])
-        if progress_cb and tail != last_tail:
-            last_tail = tail
-            try:
-                await progress_cb({
-                    "elapsed_s": round(time.time() - started, 1),
-                    "tail": tail,
-                    "tmux_session": name,
-                })
-            except Exception:
-                pass
-        if done:
-            rc = _extract_marker_rc(capture, end_prefix)
-            cleaned = _clean_tmux_command_output(body, wrapped)
-            return cleaned, "", rc, False
-        if time.time() - started > timeout:
-            try:
-                await _run_exec("tmux", "send-keys", "-t", name, "C-c", timeout=3)
-            except Exception:
-                pass
-            cleaned = _clean_tmux_command_output(body, wrapped)
-            return cleaned, "", 124, True
-        await asyncio.sleep(0.5)
-
-
-def _clean_tmux_command_output(text: str, wrapped_command: str) -> str:
-    lines = text.splitlines()
-    wrapped_lines = {ln.rstrip() for ln in wrapped_command.splitlines() if ln.strip()}
-    cleaned = []
-    for line in lines:
-        raw = line.rstrip()
-        stripped = raw.strip()
-        if not stripped:
-            cleaned.append(raw)
-            continue
-        if stripped in wrapped_lines:
-            continue
-        if stripped.startswith("__ody_rc=") or stripped.startswith("printf "):
-            continue
-        if re.fullmatch(r"(?:bash|sh)-[\d.]+\$ ?", stripped):
-            continue
-        if re.fullmatch(r"[\w.@:/~+-]+[#$] ?", stripped):
-            continue
-        cleaned.append(raw)
-    return "\n".join(cleaned).strip()
-
-
-async def _run_subprocess_streaming(
-    proc: asyncio.subprocess.Process,
-=======
->>>>>>> upstream/dev
     *,
     chdir: str = WORKSPACE_MOUNT,
     interpreter_prefix: str | None = None,
@@ -807,7 +723,7 @@ def _owned_spec(cwd: str, env: Optional[dict], timeout: int, readonly_extra: tup
 
 
 async def _run_owned_command(command, ctx: dict, *, tool: str, timeout: int, argv: bool = False,
-                             readonly_extra: tuple = ()) -> dict:
+                             readonly_extra: tuple = (), stdin: Optional[bytes] = None) -> dict:
     from src.tool_execution import agent_cwd, _truncate
 
     grant = None
@@ -834,7 +750,10 @@ async def _run_owned_command(command, ctx: dict, *, tool: str, timeout: int, arg
                 command = [*command[:-1], _replace_workspace_alias(command[-1], grant.workspace)]
             else:
                 command = _replace_workspace_alias(command, grant.workspace)
-        result = await containment.run(grant, command, argv=argv, progress_cb=ctx.get("progress_cb"))
+        result = await containment.run(
+            grant, command, argv=argv, stdin=stdin,
+            progress_cb=ctx.get("progress_cb"),
+        )
         from src.agent_runtime.process_resources import attach_containment_processes
         attach_containment_processes(launch, grant.id)
     except containment.ContainmentUnavailable as exc:
@@ -900,54 +819,10 @@ class BashTool:
         from src import sudo_auth
         if isinstance(content, dict):
             content = str(content.get("command") or content.get("cmd") or content.get("code") or "")
-<<<<<<< HEAD
-        progress_cb = ctx.get("progress_cb")
-        _subproc_env = ctx.get("subproc_env")
-        owner = ctx.get("owner")
-        session_id = ctx.get("session_id")
-        cwd = agent_cwd()
-
-        command = _add_noconfirm_to_garuda_update(content)
-
-        # Persistent tmux session (state survives across tool calls in the same
-        # conversation) when available. No sudo-prompt handling in this path --
-        # a real terminal is there, but nothing feeds it a password -- so this
-        # is skipped whenever the command needs sudo and falls through to the
-        # one-shot path below, which does handle it. Also skipped on native
-        # Windows: a stray MSYS/Cygwin tmux.exe hard-codes /bin/bash and can't
-        # safely consume a native cwd -- the Git Bash launcher below handles it.
-        if session_id and shutil.which("tmux") and not IS_WINDOWS and not _mentions_sudo(command):
-            stdout, stderr, rc, timed_out = await _run_tmux_bash(
-                command,
-                session_id=str(session_id),
-                cwd=cwd,
-                env=_subproc_env,
-                timeout=DEFAULT_BASH_TIMEOUT,
-                progress_cb=progress_cb,
-            )
-            if timed_out:
-                return {
-                    "error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — sent Ctrl-C to tmux session",
-                    "exit_code": 124,
-                    "stdout": _truncate(stdout, MAX_OUTPUT_CHARS),
-                    "stderr": _truncate(stderr, MAX_OUTPUT_CHARS),
-                    "tmux_session": _tmux_session_name(str(session_id)),
-                }
-            output = stdout.rstrip()
-            err = stderr.rstrip()
-            if err:
-                output = (output + "\nSTDERR: " + err).strip() if output else "STDERR: " + err
-=======
         content = str(content or "").strip()
         if not content:
->>>>>>> upstream/dev
             return {
                 "error": "bash: command is required; no command was executed",
-                "exit_code": 1,
-            }
-        if re.search(r"(?:^|[;&|]\s*)sudo\b|^\s*sudo\b", content, re.IGNORECASE):
-            return {
-                "error": "bash: sudo/privilege escalation is unavailable in agent execution",
                 "exit_code": 1,
             }
         if re.search(r"\b(?:curl|wget)\b[^\n]*https?://", content, re.IGNORECASE):
@@ -990,12 +865,12 @@ class BashTool:
         if "/tmp/" in content:
             isolated_tmp = _isolated_tmp_dir(agent_cwd())
             content = content.replace("/tmp/", isolated_tmp.rstrip("/") + "/")
-        return await _run_owned_command(content, ctx, tool="bash", timeout=DEFAULT_BASH_TIMEOUT)
 
-class HostShellTool:
-    async def execute(self, content: str, ctx: dict) -> dict:
-        from src.tool_execution import _truncate
-
+        command = _add_noconfirm_to_garuda_update(content)
+        progress_cb = ctx.get("progress_cb")
+        _subproc_env = ctx.get("subproc_env")
+        owner = ctx.get("owner")
+        cwd = agent_cwd()
         stdin_payload: Optional[bytes] = None
         password: Optional[str] = None
 
@@ -1022,49 +897,28 @@ class HostShellTool:
                 # first sudo, so a chained second one needs its own.
                 stdin_payload = ((password + "\n") * max(1, sudo_count)).encode()
 
-        try:
-<<<<<<< HEAD
-            proc = await _create_bash_subprocess(
-                command,
-                stdin=asyncio.subprocess.PIPE if stdin_payload is not None else None,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=_subproc_env,
-                cwd=cwd,
-            )
-        except RuntimeError as e:
-            return {"error": f"bash: {e}", "exit_code": 1}
-        if stdin_payload is not None and proc.stdin is not None:
-            try:
-                proc.stdin.write(stdin_payload)
-                await proc.stdin.drain()
-            except Exception:
-                pass
-            try:
-                proc.stdin.close()
-            except Exception:
-                pass
-
-        stdout, stderr, rc, timed_out = await _run_subprocess_streaming(
-            proc,
-            timeout=DEFAULT_BASH_TIMEOUT,
-            progress_cb=progress_cb,
+        result = await _run_owned_command(
+            command, ctx, tool="bash", timeout=DEFAULT_BASH_TIMEOUT, stdin=stdin_payload,
         )
-        stdout = _redact(stdout, password)
-        stderr = _redact(stderr, password)
-        if timed_out:
-            return {"error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(stdout, MAX_OUTPUT_CHARS), "stderr": _truncate(stderr, MAX_OUTPUT_CHARS)}
-        output = stdout.rstrip()
-        err = stderr.rstrip()
-        if err:
-            output = (output + "\nSTDERR: " + err).strip() if output else "STDERR: " + err
+        for key in ("output", "error", "stdout", "stderr"):
+            if isinstance(result.get(key), str):
+                result[key] = _redact(result[key], password)
+
+        combined = "".join(
+            str(result.get(key) or "") for key in ("output", "error", "stdout", "stderr")
+        )
 
         # We didn't spot `sudo` in the command text, so we ran it plain — but
         # it turned out to be a wrapper (e.g. `garuda-update`) that calls sudo
         # internally and just failed for lack of a terminal. Get a password
         # and retry the same command attached to a real pty this time, so
         # whatever `sudo` call is buried inside it can prompt on that tty.
-        if rc != 0 and password is None and not timed_out and _looks_like_sudo_tty_failure(output):
+        if (
+            result.get("exit_code") not in (0, None)
+            and password is None
+            and not result.get("timed_out")
+            and _looks_like_sudo_tty_failure(combined)
+        ):
             retry_password = sudo_auth.get_cached(owner)
             if not retry_password and progress_cb:
                 retry_password = await sudo_auth.request_password(owner, command, progress_cb)
@@ -1082,18 +936,27 @@ class HostShellTool:
             )
             pty_output = _redact(pty_output, retry_password).rstrip()
             if pty_timed_out:
-                return {"error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(pty_output, MAX_OUTPUT_CHARS), "stderr": ""}
+                return {
+                    "error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — process killed",
+                    "exit_code": 124,
+                    "stdout": _truncate(pty_output, MAX_OUTPUT_CHARS),
+                    "stderr": "",
+                }
             if pty_rc != 0 and "try again" in pty_output.lower():
                 sudo_auth.clear(owner)
             return {"output": _truncate(pty_output, MAX_OUTPUT_CHARS) or "(no output)", "exit_code": pty_rc}
 
         # A wrong password burns the cache — otherwise every later command in
         # the turn silently retries the same bad one.
-        if rc != 0 and password and "try again" in err.lower():
+        if result.get("exit_code") not in (0, None) and password and "try again" in combined.lower():
             sudo_auth.clear(owner)
-        output = _truncate(output, MAX_OUTPUT_CHARS)
-        return {"output": output or "(no output)", "exit_code": rc or 0}
-=======
+        return result
+
+class HostShellTool:
+    async def execute(self, content: str, ctx: dict) -> dict:
+        from src.tool_execution import _truncate
+
+        try:
             args = json.loads(content) if str(content or "").strip().startswith("{") else {}
         except Exception:
             args = {}
@@ -1332,7 +1195,6 @@ def _python_with_configured_import_paths(content: str, env: dict | None) -> str:
         return content
     return f"import site\n[site.addsitedir(path) for path in {paths!r}]\nexec(compile({content!r}, '<odysseus-python-tool>', 'exec'))"
 
->>>>>>> upstream/dev
 
 class PythonTool:
     async def execute(self, content: str, ctx: dict) -> dict:

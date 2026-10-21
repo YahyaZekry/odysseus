@@ -6329,11 +6329,8 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
     const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     let sendSpinner = null;
     let origBtnHtml = '';
-<<<<<<< HEAD
     let detachedEmailDoc = null;
-=======
     let recoveryDraftSaved = Boolean(doc?._emailDraftUid);
->>>>>>> upstream/dev
     _emailSendInFlight = true;
     if (btn) {
       btn.disabled = true;
@@ -6345,7 +6342,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
       btn.appendChild(document.createTextNode('Sending'));
     }
     try {
-<<<<<<< HEAD
       let canceled = false;
       if (uiModule) {
         uiModule.showToast('Sending', {
@@ -6364,9 +6360,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
         if (uiModule) uiModule.showToast('Send canceled');
         return;
       }
-=======
-      if (uiModule) uiModule.showToast('Sending', { duration: 2200, leadingIcon: 'spinner', toastClass: 'toast-sending' });
->>>>>>> upstream/dev
 
       const activeAccountIdPromise = _resolveComposeSendAccountId();
       const activeAccountId = await activeAccountIdPromise;
@@ -6403,8 +6396,11 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
         }),
       });
       // Remote SMTP/IMAP confirmation can take several seconds. The request
-      // is now committed, so close the composer while the captured document
-      // remains available as the recovery draft until delivery is confirmed.
+      // is now committed, so close the document library/composer while the
+      // captured document remains available as the recovery draft until
+      // delivery is confirmed. (_detachActiveEmailForBackground already
+      // switched or closed the pane; this is a fallback for the case where
+      // the doc was no longer in the map.)
       if (isLibraryOpen()) closeLibrary();
       if (isOpen && activeDocId === sendDocId) closePanel();
       const res = await sendRequest;
@@ -6497,26 +6493,27 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
           _syncDocIndicator();
         }
       } else {
-<<<<<<< HEAD
+        if (detachedEmailDoc && recoveryDraft) {
+          detachedEmailDoc.doc._emailDraftUid = recoveryDraft.draft_uid || detachedEmailDoc.doc._emailDraftUid || null;
+          detachedEmailDoc.doc._emailDraftFolder = recoveryDraft.draft_folder || detachedEmailDoc.doc._emailDraftFolder || null;
+        }
         _restoreDetachedEmailDoc(detachedEmailDoc);
         detachedEmailDoc = null;
-        if (uiModule) uiModule.showError(data.error || 'Failed to send');
+        if (uiModule) {
+          uiModule.showError(recoveryDraftSaved
+            ? `${data.error || 'Failed to send'} Draft kept in Drafts.`
+            : (data.error || 'Failed to send'));
+        }
       }
     } catch (e) {
       _restoreDetachedEmailDoc(detachedEmailDoc);
       detachedEmailDoc = null;
-      if (uiModule) uiModule.showError(e?.message ? `Failed to send email: ${e.message}` : 'Failed to send email');
-=======
-        if (uiModule) uiModule.showError(`${data.error || 'Failed to send'} Draft kept in Drafts.`);
-      }
-    } catch (e) {
       if (uiModule) {
         const reason = e?.message || 'connection lost';
         uiModule.showError(recoveryDraftSaved
           ? `Send failed: ${reason}. Draft kept in Drafts.`
           : `Send cancelled: ${reason}. Could not save a recovery draft.`);
       }
->>>>>>> upstream/dev
     } finally {
       _emailSendInFlight = false;
       if (sendSpinner) sendSpinner.destroy();
@@ -6813,7 +6810,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
         .replace(/<\/?\|(?:assistant|assistan|user|system|tool)\|>?|<\/\|end\|>?/gi, '')
         .trim();
     };
-<<<<<<< HEAD
     const shouldUseFastAiReply = () => {
       const text = `${subject}\n${currentBody}`.toLowerCase();
       if (/\b(attach(?:ed|ment)?|pdf|document|contract|invoice|receipt|quote|estimate|proposal|question|questions|details|schedule|booking|reservation|meeting|calendar|availability|confirm|confirmation|review|sign|signature)\b/.test(text)) {
@@ -6821,7 +6817,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
       }
       return currentBody.length < 2500;
     };
-=======
     const splitCurrent = _splitEmailReplyQuote(currentBody);
     const ownBody = document.createElement('template');
     ownBody.innerHTML = String(splitCurrent.body || '');
@@ -6831,7 +6826,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
       if (uiModule) uiModule.showToast('Reply already has text');
       return;
     }
->>>>>>> upstream/dev
 
     // Keep the request tied to the exact draft state that the user approved.
     // AI generation is asynchronous; a late response must never replace text
@@ -6882,14 +6876,10 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
       // Empty-compose path: if there's no original body, send a placeholder
       // so the backend's "no body" guard doesn't fail. The user_hint carries
       // the user's compose intent; the model uses To/Subject + that hint.
-<<<<<<< HEAD
-      const bodyForApi = currentBody || (noteHint ? '(no prior email — compose a new message based on the To, Subject, and user instructions)' : currentBody);
+      const bodyForApi = opts.originalBody || splitCurrent.quote || currentBody || (noteHint ? '(no prior email — compose a new message based on the To, Subject, and user instructions)' : '');
       const fastFlag = mode === 'ai-reply-fast' ? true
                      : mode === 'ai-reply-full' ? false
                      : shouldUseFastAiReply();
-=======
-      const bodyForApi = opts.originalBody || splitCurrent.quote || currentBody || (noteHint ? '(no prior email -- compose from the user instructions)' : '');
->>>>>>> upstream/dev
       const res = await fetch(`${API_BASE}/api/email/ai-reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6904,11 +6894,7 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
           uid: sourceUid,
           folder: sourceFolder,
           account_id: sourceAccountId,
-<<<<<<< HEAD
           fast: fastFlag,
-=======
-          fast: mode !== 'ai-reply-full',
->>>>>>> upstream/dev
           user_hint: noteHint || '',
         }),
       });
@@ -6935,14 +6921,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
         // currentBody. Without this, AI's invented quote stacked on top
         // of the real one and looked like the history had been "edited".
         cleanReply = cleanReply.replace(/\n*On\b[\s\S]*?\bwrote:[\s\S]*$/m, '').trim();
-<<<<<<< HEAD
-        // Never overwrite the existing draft (user's typed text + the
-        // quoted history below it). Always prepend the AI suggestion so
-        // the user can read it, copy parts, or delete it — but their
-        // own work and the original quote are untouched.
-        const newBody = currentBody ? cleanReply + '\n\n' + currentBody : cleanReply;
-        await _streamEmailBodyText(textarea, newBody);
-=======
         const quote = splitCurrent.quote || '';
         const newBody = cleanReply + (quote ? `\n\n${quote}` : '');
         // Reconcile the final body only while this generation still owns the draft.
@@ -6951,7 +6929,6 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
           return;
         }
         _setEmailBodyText(textarea, newBody);
->>>>>>> upstream/dev
         _clearDocAiReplyContext(contextKey || _docAiReplyContextKey());
         if (uiModule) uiModule.showToast(`AI draft inserted (${data.model_used || 'AI'})`, { aiReplyResult: true });
         return true;
@@ -7646,18 +7623,13 @@ import { attachColorPicker } from './colorPicker.js?v=20260910eyedropper1';
             <button type="button" class="md-view-opt" data-renderview="code" title="Edit code"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
             <button type="button" class="md-view-opt" data-renderview="run" title="Run / Preview"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
           </span>
-<<<<<<< HEAD
-          <button id="doc-email-ai-reply-btn" class="doc-action-icon-btn md-toolbar-email-only" type="button" title="Draft a reply with AI (Fast / Full + optional context)" style="display:none;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent, var(--red));flex-shrink:0;position:relative;top:-1px;"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg><span style="font-size:11px;">Reply</span></button>
-          <button id="doc-fontsize-btn" class="doc-action-icon-btn" title="Font size" style="position:relative;width:28px;height:26px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;"><path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/></svg><span class="doc-fontsize-levels"><i data-sz="s">S</i><i data-sz="m">M</i><i data-sz="l">L</i></span></button>
-=======
         </div>
         <button type="button" class="md-scroll-arrow md-scroll-left" id="md-scroll-left" title="Scroll left" style="display:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <div class="md-toolbar-items" id="md-toolbar-items">
-          <button id="doc-email-ai-reply-btn" class="doc-action-icon-btn md-toolbar-email-only" type="button" title="Draft a reply with AI (fast + optional context)" style="display:none;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent, var(--red));flex-shrink:0;position:relative;top:-1px;"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg><span style="font-size:11px;">Reply</span></button>
+          <button id="doc-email-ai-reply-btn" class="doc-action-icon-btn md-toolbar-email-only" type="button" title="Draft a reply with AI (Fast / Full + optional context)" style="display:none;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent, var(--red));flex-shrink:0;position:relative;top:-1px;"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg><span style="font-size:11px;">Reply</span></button>
           <span id="md-toolbar-sep-after-ai-reply" class="md-toolbar-sep md-toolbar-manual-sep md-toolbar-email-only" aria-hidden="true"></span>
           <button type="button" id="doc-ai-writing-btn" class="doc-ai-writing-btn md-toolbar-edit-only" title="Writing tools" aria-label="Writing tools" aria-haspopup="menu" aria-expanded="false"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.8 14.45 9.55 22.2 12l-7.75 2.45L12 22.2l-2.45-7.75L1.8 12l7.75-2.45L12 1.8Z"/></svg><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button>
           <button id="doc-fontsize-btn" class="doc-action-icon-btn" title="Editor display size" aria-label="Editor display size" style="position:relative;width:28px;height:26px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;"><path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/></svg><span class="doc-fontsize-levels"><i data-sz="s">S</i><i data-sz="m">M</i><i data-sz="l">L</i></span></button>
->>>>>>> upstream/dev
           <button id="doc-diff-toggle-btn" class="doc-action-icon-btn" title="Compare changes" style="opacity:0.7;display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 12H2l5-5 5 5H9"/><path d="M19 12h3l-5 5-5-5h3"/></svg></button>
           <span class="md-toolbar-sep md-toolbar-edit-only"></span>
           <button type="button" class="md-toolbar-edit-only" data-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>

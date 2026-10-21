@@ -7,11 +7,7 @@
 //   - Other static assets (images/fonts/libs): cache-first with bg refresh.
 //   - API / non-GET: never cached.
 // Bump CACHE_NAME whenever the precache list or SW logic changes.
-<<<<<<< HEAD
-const CACHE_NAME = 'odysseus-v381-shared-config-lazy-katex-mermaid-gotham-scene';
-=======
-const CACHE_NAME = 'odysseus-v659-notes-reference';
->>>>>>> upstream/dev
+const CACHE_NAME = 'odysseus-v660-csssplit-local99';
 
 // KaTeX resolves these from its own stylesheet, so caching the CSS without them
 // gives offline math fallback glyphs instead of proper typesetting.
@@ -64,6 +60,7 @@ const PRECACHE = [
   '/static/css/documents-gallery-editor.css?v=20260929csssplit',
   '/static/css/email-calendar-notes-tasks.css?v=20260929csssplit',
   '/static/css/cookbook-research-memory-settings.css?v=20260929csssplit',
+  '/static/css/99-local.css?v=20260929csssplit',
   '/static/app.js?v=20260929csssplit',
   '/static/js/storage.js',
   '/static/js/appConfig.js',

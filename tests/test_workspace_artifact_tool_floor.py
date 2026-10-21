@@ -2331,7 +2331,7 @@ def test_native_web_tool_shell_wrapper_is_repaired_without_claw_mapping():
     assert untouched.tool_type == "bash"
 
 
-def test_bash_rejects_http_download_and_sudo_before_subprocess():
+def test_bash_rejects_http_download_and_sudo_requires_approval_before_subprocess():
     import asyncio
     from src.agent_tools.subprocess_tools import BashTool
 
@@ -2340,9 +2340,12 @@ def test_bash_rejects_http_download_and_sudo_before_subprocess():
     ))
     assert download["exit_code"] == 1
     assert "Use pdf_extract" in download["error"]
+    # This fork brokers sudo through an approval prompt instead of rejecting it
+    # outright. Without a progress callback there is no one to ask, so the
+    # command must still stop before spawning a subprocess.
     privileged = asyncio.run(BashTool().execute("sudo apt-get install poppler-utils", {}))
     assert privileged["exit_code"] == 1
-    assert "privilege escalation" in privileged["error"]
+    assert "sudo password" in (privileged.get("error") or privileged.get("output") or "")
 
 
 def test_forced_finish_keeps_tools_only_for_missing_terminal_artifacts():

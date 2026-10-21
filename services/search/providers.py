@@ -3,13 +3,9 @@
 import json
 import logging
 import os
-<<<<<<< HEAD
+import re
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
-=======
-import re
-from typing import List, Optional
->>>>>>> upstream/dev
 from urllib.parse import urljoin, urlparse, parse_qs
 
 import httpx
@@ -138,10 +134,10 @@ def _get_provider_key(provider: str) -> str:
     legacy = (settings.get("search_api_key") or "").strip()
     if legacy:
         return legacy
-<<<<<<< HEAD
     if info and info.env_var:
-        return (os.environ.get(info.env_var) or "").strip()
-=======
+        val = (os.environ.get(info.env_var) or "").strip()
+        if val:
+            return val
     env_map = {
         # DATA_BRAVE_API_KEY is the historical Odysseus name; BRAVE_API_KEY is
         # the standard name used by headless runners and the Brave SDK.
@@ -154,7 +150,6 @@ def _get_provider_key(provider: str) -> str:
         value = (os.environ.get(env_name) or "").strip()
         if value:
             return value
->>>>>>> upstream/dev
     return ""
 
 
@@ -301,11 +296,6 @@ def searxng_search_api(query: str, count: Optional[int] = None, categories: str 
     if is_news and categories == "general":
         params["categories"] = "news"
         if time_filter in ("day", "week", "month", "year"):
-<<<<<<< HEAD
-            params["time_range"] = "week" if time_filter in ("day", "week") else time_filter
-    else:
-        params["categories"] = categories
-=======
             params["time_range"] = time_filter
     else:
         params["categories"] = categories
@@ -313,9 +303,6 @@ def searxng_search_api(query: str, count: Optional[int] = None, categories: str 
         # comparisons and documentation still belong in general search.
         if time_filter in ("day", "week", "month", "year"):
             params["time_range"] = time_filter
-        # Route general queries to engines that aren't blocked (default general
-        # set returns 0 on this instance — see _GENERAL_ENGINES).
->>>>>>> upstream/dev
         if categories == "general" and _GENERAL_ENGINES:
             params["engines"] = _GENERAL_ENGINES
     if engines:
@@ -350,22 +337,11 @@ def searxng_search_api(query: str, count: Optional[int] = None, categories: str 
 
         active_params = params
         parsed, data = _run(active_params)
-<<<<<<< HEAD
-        if not parsed and is_news and categories == "general":
-            fallback = {
-                "q": query,
-                "format": "json",
-                "language": "en",
-                "categories": "general",
-                "safesearch": _safesearch_for("searxng"),
-            }
-=======
         if not parsed and active_params.get("categories") == "news":
             # Some self-hosted SearXNG configs have no working news engines.
             # Fall back to the known-good general engines before reporting an
             # empty search, otherwise common queries like "Canada news" fail.
             fallback = {**active_params, "categories": "general"}
->>>>>>> upstream/dev
             if _GENERAL_ENGINES:
                 fallback["engines"] = _GENERAL_ENGINES
             logger.info(
@@ -1050,8 +1026,14 @@ def exa_search(query: str, count: int = 10, time_filter: Optional[str] = None) -
 # ── Provider function dispatch ──
 # Registered here (after all function definitions) so refs are available.
 
+def searxng_yep_search(query: str, count: Optional[int] = None, time_filter: Optional[str] = None) -> List[dict]:
+    """Second engine on the private SearXNG instance (see _build_provider_chain)."""
+    return searxng_search_api(query, count, time_filter=time_filter, engines="yep")
+
+
 PROVIDER_FUNCTIONS: dict[str, Callable] = {
     "searxng": searxng_search_api,
+    "searxng_yep": searxng_yep_search,
     "brave": brave_search,
     "duckduckgo": duckduckgo_search,
     "google_pse": google_pse_search,

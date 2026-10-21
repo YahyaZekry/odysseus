@@ -432,7 +432,13 @@ class ToolIndex:
                    "check on that job", "job output", "kill the job",
                    "kill the background", "stop the background", "running job"}):
             {"manage_bg_jobs"},
-<<<<<<< HEAD
+        frozenset({"lan", "local network", "local ip", "subnet", "router",
+                   "tailscale", "ssh", "arp", "nmap", "mdns", "avahi"}):
+            {"host_shell"},
+        frozenset({"youtube", "youtu.be", "yt", "video comments", "youtube comments", "transcript"}):
+            {"youtube_tool", "web_search", "web_fetch", "private_browser"},
+        frozenset({"local video", "video file", "watch this video", "movie clip", "video.mp4", "video.webm", "inspect image"}):
+            {"inspect_media"},
         # Shell / command execution. Nothing here previously mapped to `bash`
         # at all, so the shell tool was reachable ONLY through semantic
         # retrieval — and whenever ChromaDB was unreachable the keyword
@@ -453,15 +459,6 @@ class ToolIndex:
                    "update packages", "update my packages", "check for updates",
                    "software update", "update system"}):
             {"bash", "python", "manage_bg_jobs"},
-=======
-        frozenset({"lan", "local network", "local ip", "subnet", "router",
-                   "tailscale", "ssh", "arp", "nmap", "mdns", "avahi"}):
-            {"host_shell"},
-        frozenset({"youtube", "youtu.be", "yt", "video comments", "youtube comments", "transcript"}):
-            {"youtube_tool", "web_search", "web_fetch", "private_browser"},
-        frozenset({"local video", "video file", "watch this video", "movie clip", "video.mp4", "video.webm", "inspect image"}):
-            {"inspect_media"},
->>>>>>> upstream/dev
         frozenset({"note", "todo", "reminder", "remind", "checklist", "remember to"}):
             {"manage_notes"},
         frozenset({"remember this", "remember that", "save this as memory", "store this in memory"}):
