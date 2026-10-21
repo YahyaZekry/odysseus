@@ -18,6 +18,21 @@ function _escapeHtml(s) {
   })[c]);
 }
 
+// Match on the parsed hostname, not a substring: a feed can claim a site URL
+// such as https://youtube.com.evil.example/ and still contain "youtube.com".
+function _isYouTubeUrl(url) {
+  let host;
+  try {
+    const raw = String(url ?? '');
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    host = parsed.hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return host === 'youtube.com' || host.endsWith('.youtube.com')
+    || host === 'youtu.be' || host.endsWith('.youtu.be');
+}
+
 let _open = false;
 let _feeds = [];
 let _groups = [];
@@ -742,7 +757,7 @@ function _feedIconHtml(icon, title) {
 
 function _feedItemHtml(f) {
   let icon = f.icon || '';
-  if (!icon && f.site_url && f.site_url.includes('youtube.com')) {
+  if (!icon && f.site_url && _isYouTubeUrl(f.site_url)) {
     icon = 'https://www.youtube.com/favicon.ico';
   }
   return `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}" data-group-id="">
@@ -823,7 +838,7 @@ function _renderGroupTreeNode(node, depth) {
   if (!isCollapsed) {
     for (const f of node.feeds) {
       let icon = f.icon || '';
-      if (!icon && f.site_url && f.site_url.includes('youtube.com')) {
+      if (!icon && f.site_url && _isYouTubeUrl(f.site_url)) {
         icon = 'https://www.youtube.com/favicon.ico';
       }
       html += `<div class="rss-feed-item ${_activeFeedId === f.id ? 'active' : ''}" data-feed-id="${f.id}" data-group-id="${node.id}" style="padding-left:${24 + indent}px">
@@ -884,7 +899,7 @@ function _articleItemHtml(a) {
   // list. Show a clear placeholder for videos, omit the row entirely
   // otherwise so non-video articles without a snippet don't get one either.
   const snippetHtml = rawSnippet
-    ? `<div class="rss-article-snippet">${rawSnippet}</div>`
+    ? `<div class="rss-article-snippet">${_escapeHtml(rawSnippet)}</div>`
     : (isVideo ? '<div class="rss-article-snippet rss-article-snippet-empty">▶ No description available</div>' : '');
   return `<div class="rss-article-item ${a.is_read ? 'rss-article-read' : ''} ${_activeArticleId === a.id ? 'active' : ''}" data-article-id="${a.id}">
       ${a.image ? `<div class="rss-article-thumb" style="background-image: url('${a.image}')"></div>` : ''}
@@ -1323,7 +1338,7 @@ function _openVideoModal(videoId, videoUrl) {
   }
   const player = _el('rss-video-modal-player');
   const link = _el('rss-video-modal-link');
-  link.href = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? videoUrl : `https://www.youtube.com/watch?v=${videoId}`;
+  link.href = _isYouTubeUrl(videoUrl) ? videoUrl : `https://www.youtube.com/watch?v=${videoId}`;
   player.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
