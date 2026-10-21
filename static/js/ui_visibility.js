@@ -21,7 +21,6 @@ export const UI_VIS_MAP = {
   // (see the 2026-07-24 sidebar restructure); upstream still ships a
   // single #tools-section, so keep both -- a selector that matches
   // nothing is simply a no-op here.
-  'models-section':      '#models-section',
   'ai-tools-section':    '#ai-tools-section',
   'personal-section':    '#personal-section',
   'appearance-section':  '#appearance-section',
@@ -33,6 +32,7 @@ export const UI_VIS_MAP = {
   'tool-gallery':        '#tool-gallery-btn, #rail-gallery',
   'tool-library':        '#tool-library-btn, #rail-archive',
   'tool-memory':         '#tool-memory-btn, #rail-memory',
+  'tool-skills':         '#tool-skills-btn, #rail-skills',
   'tool-notes':          '#tool-notes-btn, #rail-notes',
   'tool-tasks':          '#tool-tasks-btn, #rail-tasks',
   'tool-theme':          '#tool-theme-btn, #rail-theme',
@@ -71,7 +71,7 @@ export const UI_VIS_TOOL_PARENT = {
 };
 
 // Keys hidden by default on first run (no localStorage yet).
-export const UI_VIS_DEFAULT_OFF = new Set(['models-section', 'rag-toggle-btn', 'text-emojis', 'chat-fullwidth']);
+export const UI_VIS_DEFAULT_OFF = new Set(['rag-toggle-btn', 'text-emojis', 'chat-fullwidth']);
 
 /**
  * Resolve every UI_VIS_MAP selector to visible (true) or hidden (false) for the
