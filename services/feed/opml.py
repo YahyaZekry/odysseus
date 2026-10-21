@@ -1,6 +1,9 @@
 import logging
-from xml.etree import ElementTree as ET
 from typing import Optional
+from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +13,7 @@ OPML_NS = "http://opml.org/spec2"
 def parse_opml(opml_content: str) -> list[dict]:
     feeds = []
     try:
-        root = ET.fromstring(opml_content)
+        root = DefusedET.fromstring(opml_content)
         body = root.find("body")
         if body is None:
             return feeds
@@ -33,7 +36,7 @@ def parse_opml(opml_content: str) -> list[dict]:
                     _recurse(outline, group_path + [child_name])
 
         _recurse(body)
-    except ET.ParseError as e:
+    except (ET.ParseError, DefusedXmlException) as e:
         logger.warning("OPML parse error: %s", e)
     return feeds
 

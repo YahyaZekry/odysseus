@@ -36,6 +36,9 @@ markdown
 nh3
 # Calendar .ics import/export (routes/calendar_routes.py).
 icalendar
+
+# Hardened XML parsing for user-supplied OPML imports (services/feed/opml.py).
+defusedxml
 # Recurrence rule expansion for calendar events (routes/calendar_routes.py).
 # Imported directly as dateutil.rrule — make it explicit even though caldav
 # pulls it in transitively.
