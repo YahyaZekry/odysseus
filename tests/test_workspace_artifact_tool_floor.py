@@ -2331,9 +2331,16 @@ def test_native_web_tool_shell_wrapper_is_repaired_without_claw_mapping():
     assert untouched.tool_type == "bash"
 
 
-def test_bash_rejects_http_download_and_sudo_requires_approval_before_subprocess():
+def test_bash_rejects_http_download_and_sudo_requires_approval_before_subprocess(monkeypatch):
     import asyncio
+
+    from src.agent_tools import subprocess_tools
     from src.agent_tools.subprocess_tools import BashTool
+
+    async def _no_passwordless(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(subprocess_tools, "_passwordless_sudo_available", _no_passwordless)
 
     download = asyncio.run(BashTool().execute(
         'curl -L https://example.test/paper.pdf -o /tmp/paper.pdf', {}
@@ -2341,8 +2348,9 @@ def test_bash_rejects_http_download_and_sudo_requires_approval_before_subprocess
     assert download["exit_code"] == 1
     assert "Use pdf_extract" in download["error"]
     # This fork brokers sudo through an approval prompt instead of rejecting it
-    # outright. Without a progress callback there is no one to ask, so the
-    # command must still stop before spawning a subprocess.
+    # outright. With passwordless sudo ruled out and no progress callback there
+    # is no one to ask, so the command must still stop before spawning a
+    # subprocess.
     privileged = asyncio.run(BashTool().execute("sudo apt-get install poppler-utils", {}))
     assert privileged["exit_code"] == 1
     assert "sudo password" in (privileged.get("error") or privileged.get("output") or "")
