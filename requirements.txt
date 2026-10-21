@@ -9,7 +9,10 @@ pydantic-settings>=2.14.1
 SQLAlchemy
 pypdf
 pypdfium2
-Pillow
+# Pinned below 13 because fastembed 0.9.0 declares `pillow<13`. Pillow 13.0.0
+# fixes the CVEs ignored in .github/workflows/dependency-review.yml; raise this
+# cap and drop those ignores once fastembed allows it.
+Pillow>=12.3.0,<13
 faster-whisper
 pdfplumber
 beautifulsoup4
