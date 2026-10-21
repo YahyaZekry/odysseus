@@ -4,17 +4,17 @@ import shutil
 import subprocess
 
 import pytest
+from tests.helpers.js_modules import email_library_source, js_function_source
 
 
 _REPO = Path(__file__).resolve().parents[1]
-_EMAIL_LIBRARY = _REPO / "static" / "js" / "emailLibrary.js"
-
 
 def _source() -> str:
-    return _EMAIL_LIBRARY.read_text(encoding="utf-8")
+    return email_library_source()
 
 
 def _function_source(name: str) -> str:
+<<<<<<< HEAD
     """Return one top-level JS function using balanced braces."""
     text = _source()
     markers = (f"function {name}", f"async function {name}", f"export function {name}", f"export async function {name}")
@@ -98,6 +98,9 @@ def _function_source(name: str) -> str:
                 return text[start:index + 1]
         index += 1
     raise AssertionError(f"unterminated function {name}")
+=======
+    return js_function_source(name, _source())
+>>>>>>> upstream/dev
 
 
 def _run_scheduler_scenario(scenario: str):
@@ -394,7 +397,8 @@ def test_prewarm_account_chooser_rejects_disabled_or_empty_authoritative_invento
 
     ensure_accounts = _function_source("_ensureEmailAccountsForPrewarm")
     assert "if (!accountId) return null;" in ensure_accounts
-    assert ensure_accounts.index("if (!accountId) return null;") < ensure_accounts.index("_publishActiveAccount();")
+    assert "state._libAccountId = accountId" not in ensure_accounts
+    assert "_publishActiveAccount();" not in ensure_accounts
 
 
 def test_prewarm_is_bounded_to_the_interactive_initial_page_size():
