@@ -41,7 +41,7 @@ _GOOGLE_EVENTS = "https://apidata.googleusercontent.com/caldav/v2/me@gmail.com/e
 
 
 def test_google_principal_rejects_lookalike_host():
-    assert src.caldav_sync._google_caldav_events_url(
+    assert caldav_sync._google_caldav_events_url(
         "https://evilgoogleusercontent.com/caldav/v2/me@gmail.com/user"
     ) is None
 
