@@ -72,16 +72,35 @@ jobs:
           set -euo pipefail
           pip install pip-audit==2.10.0
           # fastembed 0.9.0 (core local-embeddings dependency) declares
-          # `pillow<13`, so the resolver can only pick Pillow 12.3.0. All eight
+          # `pillow<13`, so the resolver can only pick Pillow 12.3.0. All 24
           # advisories below are fixed in Pillow 13.0.0, which cannot be
-          # installed until fastembed widens that cap. Remove these ignores
-          # (and the Pillow <13 pin in requirements.txt) as soon as it does.
+          # installed until fastembed widens that cap. The list grew from 8
+          # to 24 on 2026-10-21; this is now the main dependency risk. Remove
+          # these ignores (and the Pillow <13 pin in requirements.txt) as
+          # soon as fastembed allows Pillow 13, or decouple local embeddings
+          # from fastembed so the pin can be dropped.
           pip-audit -r requirements.txt -r requirements-optional.txt --strict \
+            --ignore-vuln CVE-2026-112390 \
+            --ignore-vuln CVE-2026-112391 \
+            --ignore-vuln CVE-2026-112392 \
+            --ignore-vuln CVE-2026-112393 \
             --ignore-vuln CVE-2026-112395 \
+            --ignore-vuln CVE-2026-112396 \
             --ignore-vuln CVE-2026-112397 \
+            --ignore-vuln CVE-2026-112399 \
             --ignore-vuln CVE-2026-112400 \
+            --ignore-vuln CVE-2026-112401 \
+            --ignore-vuln CVE-2026-112402 \
             --ignore-vuln CVE-2026-112404 \
+            --ignore-vuln CVE-2026-112405 \
+            --ignore-vuln CVE-2026-112406 \
+            --ignore-vuln CVE-2026-112891 \
+            --ignore-vuln CVE-2026-112892 \
+            --ignore-vuln CVE-2026-112893 \
+            --ignore-vuln CVE-2026-112894 \
             --ignore-vuln CVE-2026-112895 \
             --ignore-vuln CVE-2026-112896 \
             --ignore-vuln CVE-2026-112897 \
-            --ignore-vuln CVE-2026-112899
+            --ignore-vuln CVE-2026-112899 \
+            --ignore-vuln CVE-2026-112900 \
+            --ignore-vuln CVE-2026-112901
