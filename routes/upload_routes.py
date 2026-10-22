@@ -30,6 +30,7 @@ from src.upload_handler import (
     UploadCleanupSafetyError,
     count_recent_uploads,
     extract_upload_ids,
+    is_valid_upload_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -148,6 +149,20 @@ def _run_reference_safe_cleanup(upload_handler) -> int:
         referenced_upload_hashes=referenced_hashes,
     )
 
+
+def _vision_cache_filename(file_id: str) -> str:
+    """Return the cache filename for a canonical upload id.
+
+    The HTTP routes validate ``file_id`` before they get here, but keeping the
+    check in this helper means a future caller cannot turn a malformed id into
+    a path outside the upload directory. The cache filename is derived from the
+    id, never from the uploaded file's original name.
+    """
+    if not is_valid_upload_id(file_id):
+        raise HTTPException(400, "Invalid file ID")
+    return file_id + ".txt"
+
+
 def setup_upload_routes(upload_handler):
     """Setup upload routes with the provided handler"""
 
@@ -159,6 +174,8 @@ def setup_upload_routes(upload_handler):
         return is_inside(_upload_root(), path)
 
     def _resolve_upload_path(file_id: str) -> str:
+        if not is_valid_upload_id(file_id):
+            raise HTTPException(400, "Invalid file ID")
         from src.constants import UPLOAD_DIR
         upload_root = getattr(upload_handler, "upload_dir", UPLOAD_DIR)
         direct = os.path.join(upload_root, file_id)
@@ -498,7 +515,7 @@ def setup_upload_routes(upload_handler):
     def _vision_cache_path(file_id: str) -> str:
         cache_dir = os.path.join(_upload_root(), ".vision")
         os.makedirs(cache_dir, exist_ok=True)
-        return os.path.join(cache_dir, file_id + ".txt")
+        return os.path.join(cache_dir, _vision_cache_filename(file_id))
 
     def _sync_gallery_caption_for_upload(info: dict | None, owner: str | None, text: str) -> None:
         """Copy upload OCR/vision text onto the promoted gallery image row."""
