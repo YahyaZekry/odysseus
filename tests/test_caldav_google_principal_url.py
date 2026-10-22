@@ -40,6 +40,12 @@ _GOOGLE_PRINCIPAL = "https://apidata.googleusercontent.com/caldav/v2/me@gmail.co
 _GOOGLE_EVENTS = "https://apidata.googleusercontent.com/caldav/v2/me@gmail.com/events"
 
 
+def test_google_principal_rejects_lookalike_host():
+    assert caldav_sync._google_caldav_events_url(
+        "https://evilgoogleusercontent.com/caldav/v2/me@gmail.com/user"
+    ) is None
+
+
 def _ics_one_event():
     # An event inside the sync window (now-90d .. now+365d).
     dt = datetime.utcnow() + timedelta(days=2)
