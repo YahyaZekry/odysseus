@@ -589,6 +589,7 @@ export async function refreshModels(force = false, opts = {}) {
           + '<span class="muted-sm">Ask an admin to configure model endpoints</span>';
       }
       box.appendChild(noModels);
+<<<<<<< HEAD
       // No endpoints yet: keep the welcome screen focused on first setup.
       const welcomeSub = document.getElementById('welcome-sub');
       if (welcomeSub) welcomeSub.innerHTML = 'Type <span class="setup-trigger-link" style="color:var(--accent,var(--red));font-weight:600;cursor:pointer;text-decoration:underline;" title="Click to launch setup">/setup</span> to get started.';
@@ -616,6 +617,14 @@ export async function refreshModels(force = false, opts = {}) {
             ];
         welcomeTip.textContent = tips[Math.floor(Math.random() * tips.length)];
       }
+=======
+      const openAdmin = noModels.querySelector('#models-open-admin');
+      if (openAdmin) openAdmin.addEventListener('click', (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('user-bar-admin');
+        if (btn) btn.click();
+      });
+>>>>>>> upstream/dev
     }
   } catch (e) {
     console.error(e);
